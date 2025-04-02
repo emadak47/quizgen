@@ -52,4 +52,15 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Unanswered> {
     pub fn new() -> Self {
         Self { questions: vec![] }
     }
+
+    fn ask(&self) -> Question<T, S> {
+        let old: Vec<&S> = self.questions.iter().map(|q| &q.style).collect();
+        Question::new(S::generate(&old))
+    }
+
+    fn prepare(&mut self, n: usize) {
+        for _ in 1..=n {
+            self.questions.push(self.ask())
+        }
+    }
 }
