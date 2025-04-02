@@ -19,6 +19,18 @@ pub struct MCQ {
 }
 
 impl MCQ {
+    pub fn new(
+        sentence: impl Into<String>,
+        choices: [impl Into<String>; 4],
+        solution: Choice,
+    ) -> Self {
+        Self {
+            sentence: sentence.into(),
+            choices: choices.map(Into::into),
+            solution,
+        }
+    }
+
     fn solution(&self) -> &String {
         &self.choices[self.solution as usize]
     }

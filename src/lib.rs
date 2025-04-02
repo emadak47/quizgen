@@ -7,7 +7,7 @@ pub fn quiz<T: Eq + PartialEq + fmt::Debug, S: Solver<T> + Quizzer + fmt::Debug 
     mut section: Section<T, S>,
 ) -> f64 {
     section.prepare(n);
-    println!("{section:?}"); // display the questions
+    println!("{section}"); // display the questions
     let answers: Vec<T> = Vec::new(); // accept answers from user
     section.answer(answers).grade()
 }
@@ -32,7 +32,7 @@ pub struct Question<T: Eq + PartialEq, S: Solver<T> + Quizzer, State = Unanswere
 }
 
 impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Question<T, S, Unanswered> {
-    fn new(style: S) -> Self {
+    pub fn new(style: S) -> Self {
         Self {
             style,
             state: Unanswered,
@@ -40,7 +40,7 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Question<T, S, Unanswered> {
         }
     }
 
-    fn answer(self, answer: Option<T>) -> Question<T, S, Answered<T>> {
+    pub fn answer(self, answer: Option<T>) -> Question<T, S, Answered<T>> {
         Question {
             style: self.style,
             state: Answered(answer),
