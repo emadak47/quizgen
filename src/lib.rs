@@ -75,3 +75,16 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Unanswered> {
         }
     }
 }
+
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Answered<T>> {
+    fn grade(&self) -> f64 {
+        (self
+            .questions
+            .iter()
+            .map(|q| q.mark())
+            .filter(|m| *m)
+            .count() as f64
+            / self.questions.len() as f64)
+            * 100.0
+    }
+}
