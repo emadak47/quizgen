@@ -36,3 +36,14 @@ impl<T: Eq + PartialEq, S: Solver<T>> Question<T, S, Answered<T>> {
         self.state.0 == self.style.solve()
     }
 }
+
+#[derive(Default)]
+pub struct Section<T: Eq + PartialEq, S: Solver<T>, State = Unanswered> {
+    questions: Vec<Question<T, S, State>>,
+}
+
+impl<T: Eq + PartialEq, S: Solver<T>> Section<T, S, Unanswered> {
+    pub fn new() -> Self {
+        Self { questions: vec![] }
+    }
+}
