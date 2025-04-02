@@ -1,11 +1,11 @@
 use std::{fmt, marker};
 
-pub fn quiz<T: Eq + PartialEq, S: Solver<T> + Quizzer>(
+pub fn quiz<T: Eq + PartialEq + fmt::Debug, S: Solver<T> + Quizzer + fmt::Debug + fmt::Display>(
     n: usize,
     mut section: Section<T, S>,
 ) -> f64 {
     section.prepare(n);
-    // println!("{section:?}"); // display the questions
+    println!("{section:?}"); // display the questions
     let answers: Vec<T> = Vec::new(); // accept answers from user
     section.answer(answers).grade()
 }
