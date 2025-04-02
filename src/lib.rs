@@ -20,7 +20,7 @@ pub trait Solver<T: Eq + PartialEq> {
     fn solve(&self) -> T;
 }
 
-pub struct Answered<T: Eq + PartialEq>(T);
+pub struct Answered<T: Eq + PartialEq>(Option<T>);
 pub struct Unanswered;
 
 pub struct Question<T: Eq + PartialEq, S: Solver<T> + Quizzer, State = Unanswered> {
@@ -38,7 +38,7 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Question<T, S, Unanswered> {
         }
     }
 
-    fn answer(self, answer: T) -> Question<T, S, Answered<T>> {
+    fn answer(self, answer: Option<T>) -> Question<T, S, Answered<T>> {
         Question {
             style: self.style,
             state: Answered(answer),
@@ -49,7 +49,11 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Question<T, S, Unanswered> {
 
 impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Question<T, S, Answered<T>> {
     fn mark(&self) -> bool {
-        self.state.0 == self.style.solve()
+        self.state
+            .0
+            .as_ref()
+            .map(|a| &self.style.solve() == a)
+            .unwrap_or(false)
     }
 }
 
@@ -75,6 +79,9 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Unanswered> {
     }
 
     fn answer(self, answers: Vec<T>) -> Section<T, S, Answered<T>> {
+        let mut answers: Vec<_> = answers.into_iter().map(Option::Some).collect();
+        answers.resize_with(self.questions.len(), || None);
+
         Section {
             questions: self
                 .questions
