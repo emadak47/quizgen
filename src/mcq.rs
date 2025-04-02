@@ -1,3 +1,5 @@
+use crate::Solver;
+
 use std::fmt;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -19,6 +21,12 @@ pub struct MCQ {
 impl MCQ {
     fn solution(&self) -> &String {
         &self.choices[self.solution as usize]
+    }
+}
+
+impl Solver<Choice> for MCQ {
+    fn solve(&self) -> Choice {
+        self.solution
     }
 }
 
