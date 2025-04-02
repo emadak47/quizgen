@@ -30,3 +30,9 @@ impl<T: Eq + PartialEq, S: Solver<T>> Question<T, S, Unanswered> {
         }
     }
 }
+
+impl<T: Eq + PartialEq, S: Solver<T>> Question<T, S, Answered<T>> {
+    fn mark(&self) -> bool {
+        self.state.0 == self.style.solve()
+    }
+}
