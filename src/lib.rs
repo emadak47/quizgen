@@ -13,7 +13,7 @@ pub fn quiz<T: Eq + PartialEq + fmt::Debug, S: Solver<T> + Quizzer + fmt::Debug 
 }
 
 pub trait Quizzer {
-    fn generate(old: &[&Self]) -> Self
+    fn generate(bank: &[&Self], old: &[&Self]) -> Self
     where
         Self: Sized;
 }
@@ -73,17 +73,22 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Display> fmt::Display for 
 
 #[derive(Default)]
 pub struct Section<T: Eq + PartialEq, S: Solver<T> + Quizzer, State = Unanswered> {
+    bank: Vec<Question<T, S, Answered<T>>>,
     questions: Vec<Question<T, S, State>>,
 }
 
 impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Unanswered> {
-    pub fn new() -> Self {
-        Self { questions: vec![] }
+    pub fn new(bank: Vec<Question<T, S, Answered<T>>>) -> Self {
+        Self {
+            bank,
+            questions: vec![],
+        }
     }
 
     fn ask(&self) -> Question<T, S> {
+        let bank: Vec<&S> = self.bank.iter().map(|q| &q.style).collect();
         let old: Vec<&S> = self.questions.iter().map(|q| &q.style).collect();
-        Question::new(S::generate(&old))
+        Question::new(S::generate(&bank, &old))
     }
 
     fn prepare(&mut self, n: usize) {
@@ -97,6 +102,7 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Unanswered> {
         answers.resize_with(self.questions.len(), || None);
 
         Section {
+            bank: self.bank,
             questions: self
                 .questions
                 .into_iter()
