@@ -1,4 +1,4 @@
-use std::marker;
+use std::{fmt, marker};
 
 pub fn quiz<T: Eq + PartialEq, S: Solver<T> + Quizzer>(
     n: usize,
@@ -57,6 +57,18 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Question<T, S, Answered<T>> {
     }
 }
 
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Debug> fmt::Debug for Question<T, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{:#?}", self.style)
+    }
+}
+
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Display> fmt::Display for Question<T, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "{}", self.style)
+    }
+}
+
 #[derive(Default)]
 pub struct Section<T: Eq + PartialEq, S: Solver<T> + Quizzer, State = Unanswered> {
     questions: Vec<Question<T, S, State>>,
@@ -103,5 +115,27 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Answered<T>> {
             .count() as f64
             / self.questions.len() as f64)
             * 100.0
+    }
+}
+
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Debug> fmt::Debug for Section<T, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Total Questions: {}\n", self.questions.len())?;
+        for (i, q) in self.questions.iter().enumerate() {
+            writeln!(f, "Question {}", i + 1)?;
+            writeln!(f, "{:?}", q)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Display> fmt::Display for Section<T, S> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Answer the following questions:\n")?;
+        for (i, q) in self.questions.iter().enumerate() {
+            writeln!(f, "Question {}", i + 1)?;
+            write!(f, "{}", q)?;
+        }
+        Ok(())
     }
 }
