@@ -1,3 +1,5 @@
+pub mod mcq;
+
 use std::{fmt, marker};
 
 pub fn quiz<T: Eq + PartialEq + fmt::Debug, S: Solver<T> + Quizzer + fmt::Debug + fmt::Display>(
