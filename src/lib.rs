@@ -63,4 +63,15 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Unanswered> {
             self.questions.push(self.ask())
         }
     }
+
+    fn answer(self, answers: Vec<T>) -> Section<T, S, Answered<T>> {
+        Section {
+            questions: self
+                .questions
+                .into_iter()
+                .zip(answers)
+                .map(|(q, a)| q.answer(a))
+                .collect(),
+        }
+    }
 }
