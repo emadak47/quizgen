@@ -1,4 +1,4 @@
-use crate::Solver;
+use crate::{Quizzer, Solver};
 
 use std::fmt;
 
@@ -27,6 +27,33 @@ impl MCQ {
 impl Solver<Choice> for MCQ {
     fn solve(&self) -> Choice {
         self.solution
+    }
+}
+
+impl Quizzer for MCQ {
+    fn generate(bank: &[&Self], old: &[&Self]) -> Self
+    where
+        Self: Sized,
+    {
+        use rand::prelude::IndexedRandom;
+
+        let available: Vec<&&Self> = bank.iter().filter(|item| !old.contains(item)).collect();
+
+        if let Some(&&chosen) = available.choose(&mut rand::rng()) {
+            Self {
+                sentence: chosen.sentence.clone(),
+                choices: chosen.choices.clone(),
+                solution: chosen.solution,
+            }
+        } else {
+            let chosen = bank.choose(&mut rand::rng()).expect("bank cannot be empty");
+
+            Self {
+                sentence: chosen.sentence.clone(),
+                choices: chosen.choices.clone(),
+                solution: chosen.solution,
+            }
+        }
     }
 }
 
