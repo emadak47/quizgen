@@ -1,5 +1,15 @@
 use std::marker;
 
+pub fn quiz<T: Eq + PartialEq, S: Solver<T> + Quizzer>(
+    n: usize,
+    mut section: Section<T, S>,
+) -> f64 {
+    section.prepare(n);
+    // println!("{section:?}"); // display the questions
+    let answers: Vec<T> = Vec::new(); // accept answers from user
+    section.answer(answers).grade()
+}
+
 pub trait Quizzer {
     fn generate(old: &[&Self]) -> Self
     where
