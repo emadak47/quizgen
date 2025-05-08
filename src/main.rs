@@ -1,3 +1,4 @@
+use quizgen::{mcq, Question, Section};
 use reqwest::blocking::{Client, Response};
 use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
@@ -138,23 +139,32 @@ impl WordsApi {
     }
 }
 
-use quizgen::{mcq, Question, Section};
+fn main() -> anyhow::Result<()> {
+    let api = WordsApi::new(std::env::var("WORDS_API_KEY")?)?;
 
-fn main() {
-    let answer = mcq::Choice::A;
-    let mcq = mcq::MCQ::new(
-        "Hello World! Welcome to quizgen.",
-        ["World", "Universe", "Galaxy", "Planet"],
-        answer,
-    );
+    let mut questions = Vec::new();
+    for word in ["rust"] {
+        let response = api.get_examples(word)?;
 
-    let question = Question::new(mcq).answer(Some(answer));
-    let questions = vec![question];
+        if response.examples.is_empty() {
+            continue;
+        }
+
+        let answer = mcq::Choice::A;
+        let mcq = mcq::MCQ::new(
+            response.examples[0].clone(),
+            ["rust", "go", "swift", "ruby"],
+            answer,
+        );
+
+        questions.push(Question::new(mcq).answer(Some(answer)));
+    }
 
     let section: Section<mcq::Choice, mcq::MCQ> = Section::new(questions);
-
     let grade = quizgen::quiz(1, section);
     println!("{grade}");
+
+    Ok(())
 }
 
 /*
