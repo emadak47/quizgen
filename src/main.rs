@@ -20,6 +20,24 @@ struct WordDetails {
     pub type_of: Option<Vec<String>>,
 }
 
+enum Details {
+    Definitions,
+    Synonyms,
+    Antonyms,
+    Examples,
+}
+
+impl std::fmt::Display for Details {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Details::Definitions => write!(f, "definitions"),
+            Details::Synonyms => write!(f, "synonyms"),
+            Details::Antonyms => write!(f, "antonyms"),
+            Details::Examples => write!(f, "examples"),
+        }
+    }
+}
+
 pub struct WordsApi {
     base_url: Url,
     api_key: String,
