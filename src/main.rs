@@ -45,6 +45,12 @@ struct AntonymResponse {
     pub antonyms: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct ExampleResponse {
+    pub word: String,
+    pub examples: Vec<String>,
+}
+
 enum Details {
     Definitions,
     Synonyms,
@@ -115,6 +121,10 @@ impl WordsApi {
 
     pub fn get_antonyms(&self, word: impl AsRef<str>) -> anyhow::Result<AntonymResponse> {
         self.get(word, Some(Details::Antonyms))
+    }
+
+    pub fn get_examples(&self, word: impl AsRef<str>) -> anyhow::Result<ExampleResponse> {
+        self.get(word, Some(Details::Examples))
     }
 
     fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
