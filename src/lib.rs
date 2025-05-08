@@ -1,4 +1,5 @@
 pub mod mcq;
+pub mod words_api;
 
 use std::{fmt, marker};
 
