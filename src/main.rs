@@ -1,6 +1,24 @@
 use reqwest::blocking::{Client, Response};
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
+
+#[derive(Debug, Deserialize)]
+struct WordResponse {
+    pub word: String,
+    pub results: Vec<WordDetails>,
+    pub frequency: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WordDetails {
+    pub definition: String,
+    pub part_of_speech: String,
+    pub derivation: Option<Vec<String>>,
+    pub synonyms: Option<Vec<String>>,
+    pub similar_to: Option<Vec<String>>,
+    pub type_of: Option<Vec<String>>,
+}
 
 pub struct WordsApi {
     base_url: Url,
