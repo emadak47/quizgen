@@ -47,16 +47,28 @@ pub struct WordsApi {
 impl WordsApi {
     pub fn new(api_key: impl Into<String>) -> anyhow::Result<Self> {
         Ok(Self {
-            base_url: Url::parse("https://wordsapiv1.p.rapidapi.com/words/")?,
+            base_url: Url::parse("https://wordsapiv1.p.rapidapi.com/")?,
             api_key: api_key.into(),
             client: Client::new(),
         })
     }
 
-    pub fn get<T: DeserializeOwned>(&self, word: impl AsRef<str>) -> anyhow::Result<T> {
+    fn get<T: DeserializeOwned>(
+        &self,
+        word: impl AsRef<str>,
+        details: Option<Details>,
+    ) -> anyhow::Result<T> {
+        let mut url = self.base_url.clone();
+        let path = if let Some(endpoint) = details {
+            &format!("words/{}/{endpoint}", word.as_ref())
+        } else {
+            &format!("words/{}", word.as_ref())
+        };
+        url.set_path(path);
+
         let response = self
             .client
-            .get(self.base_url.join(word.as_ref())?)
+            .get(url)
             .header("x-rapidapi-host", "wordsapiv1.p.rapidapi.com")
             .header("x-rapidapi-key", &self.api_key)
             .send()?;
