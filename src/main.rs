@@ -20,6 +20,19 @@ struct WordDetails {
     pub type_of: Option<Vec<String>>,
 }
 
+#[derive(Debug, Deserialize)]
+struct DefinitionResponse {
+    pub word: String,
+    pub definitions: Vec<Definition>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Definition {
+    pub definition: String,
+    pub part_of_speech: String,
+}
+
 enum Details {
     Definitions,
     Synonyms,
@@ -78,6 +91,10 @@ impl WordsApi {
 
     pub fn get_details(&self, word: impl AsRef<str>) -> anyhow::Result<WordResponse> {
         self.get(word, None)
+    }
+
+    pub fn get_definitions(&self, word: impl AsRef<str>) -> anyhow::Result<DefinitionResponse> {
+        self.get(word, Some(Details::Definitions))
     }
 
     fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
