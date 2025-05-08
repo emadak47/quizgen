@@ -33,6 +33,12 @@ struct Definition {
     pub part_of_speech: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct SynonymResponse {
+    pub word: String,
+    pub synonyms: Vec<String>,
+}
+
 enum Details {
     Definitions,
     Synonyms,
@@ -95,6 +101,10 @@ impl WordsApi {
 
     pub fn get_definitions(&self, word: impl AsRef<str>) -> anyhow::Result<DefinitionResponse> {
         self.get(word, Some(Details::Definitions))
+    }
+
+    pub fn get_synonyms(&self, word: impl AsRef<str>) -> anyhow::Result<SynonymResponse> {
+        self.get(word, Some(Details::Synonyms))
     }
 
     fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
