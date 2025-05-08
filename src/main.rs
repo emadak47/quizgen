@@ -76,6 +76,10 @@ impl WordsApi {
         self.handle_response(response)
     }
 
+    pub fn get_details(&self, word: impl AsRef<str>) -> anyhow::Result<WordResponse> {
+        self.get(word, None)
+    }
+
     fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
         let status = response.status();
 
