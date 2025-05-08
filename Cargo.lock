@@ -746,6 +746,7 @@ dependencies = [
  "anyhow",
  "rand",
  "reqwest",
+ "serde",
  "url",
 ]
 

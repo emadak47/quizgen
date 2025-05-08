@@ -1,4 +1,5 @@
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, Response};
+use serde::de::DeserializeOwned;
 use url::Url;
 
 pub struct WordsApi {
@@ -14,6 +15,27 @@ impl WordsApi {
             api_key: api_key.into(),
             client: Client::new(),
         })
+    }
+
+    pub fn get<T: DeserializeOwned>(&self, word: impl AsRef<str>) -> anyhow::Result<T> {
+        let response = self
+            .client
+            .get(self.base_url.join(word.as_ref())?)
+            .header("x-rapidapi-host", "wordsapiv1.p.rapidapi.com")
+            .header("x-rapidapi-key", &self.api_key)
+            .send()?;
+
+        self.handle_response(response)
+    }
+
+    fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
+        let status = response.status();
+
+        if status.is_success() {
+            response.json().map_err(|e| e.into())
+        } else {
+            anyhow::bail!("HTTP error {} {}", status, response.text()?);
+        }
     }
 }
 
