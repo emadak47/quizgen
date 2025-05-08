@@ -1,3 +1,22 @@
+use reqwest::blocking::Client;
+use url::Url;
+
+pub struct WordsApi {
+    base_url: Url,
+    api_key: String,
+    client: Client,
+}
+
+impl WordsApi {
+    pub fn new(api_key: impl Into<String>) -> anyhow::Result<Self> {
+        Ok(Self {
+            base_url: Url::parse("https://wordsapiv1.p.rapidapi.com/words/")?,
+            api_key: api_key.into(),
+            client: Client::new(),
+        })
+    }
+}
+
 use quizgen::{mcq, Question, Section};
 
 fn main() {
