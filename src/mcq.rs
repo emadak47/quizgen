@@ -1,6 +1,9 @@
 use crate::{Quizzer, Solver};
 
-use std::fmt;
+use std::{
+    fmt::{self, Debug, Display},
+    str::FromStr,
+};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Choice {
@@ -8,6 +11,23 @@ pub enum Choice {
     B,
     C,
     D,
+}
+
+impl FromStr for Choice {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_uppercase().as_str() {
+            "A" => Ok(Choice::A),
+            "B" => Ok(Choice::B),
+            "C" => Ok(Choice::C),
+            "D" => Ok(Choice::D),
+            _ => Err(format!(
+                "Invalid choice: '{}'. Please enter A, B, C, or D.",
+                s.trim()
+            )),
+        }
+    }
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -69,7 +89,7 @@ impl Quizzer for MCQ {
     }
 }
 
-impl fmt::Debug for MCQ {
+impl Debug for MCQ {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,
@@ -95,7 +115,7 @@ impl fmt::Debug for MCQ {
     }
 }
 
-impl fmt::Display for MCQ {
+impl Display for MCQ {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,

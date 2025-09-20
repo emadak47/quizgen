@@ -1,15 +1,41 @@
 pub mod mcq;
 pub mod words_api;
 
-use std::{fmt, marker};
+use std::{
+    fmt::{self, Debug, Display},
+    io::{self, Write},
+    marker,
+    str::FromStr,
+};
 
-pub fn quiz<T: Eq + PartialEq + fmt::Debug, S: Solver<T> + Quizzer + fmt::Debug + fmt::Display>(
-    n: usize,
-    mut section: Section<T, S>,
-) -> f64 {
+pub fn quiz<T, S>(n: usize, mut section: Section<T, S>) -> f64
+where
+    T: FromStr + Eq + PartialEq + Debug,
+    <T as FromStr>::Err: Display,
+    S: Solver<T> + Quizzer + Debug + Display,
+{
     section.prepare(n);
     println!("{section}"); // display the questions
-    let answers: Vec<T> = Vec::new(); // accept answers from user
+
+    // Collect answers from user
+    let mut answers = Vec::new();
+    for i in 1..=n {
+        print!("Enter your answer for question {}: ", i);
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        match input.trim().parse::<T>() {
+            Ok(answer) => answers.push(answer),
+            Err(e) => {
+                println!("Invalid input: {}. Skipping this question.", e);
+                // We'll skip invalid answers by not adding them to the vector
+                // The answer method will handle missing answers with None
+            }
+        }
+    }
+
     section.answer(answers).grade()
 }
 
@@ -60,13 +86,13 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Question<T, S, Answered<T>> {
     }
 }
 
-impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Debug> fmt::Debug for Question<T, S> {
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + Debug> Debug for Question<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{:#?}", self.style)
     }
 }
 
-impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Display> fmt::Display for Question<T, S> {
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + Display> Display for Question<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "{}", self.style)
     }
@@ -127,7 +153,7 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer> Section<T, S, Answered<T>> {
     }
 }
 
-impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Debug> fmt::Debug for Section<T, S> {
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + Debug> Debug for Section<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Total Questions: {}\n", self.questions.len())?;
         for (i, q) in self.questions.iter().enumerate() {
@@ -138,7 +164,7 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Debug> fmt::Debug for Sect
     }
 }
 
-impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + fmt::Display> fmt::Display for Section<T, S> {
+impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + Display> Display for Section<T, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Answer the following questions:\n")?;
         for (i, q) in self.questions.iter().enumerate() {
