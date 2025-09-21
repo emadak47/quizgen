@@ -30,6 +30,20 @@ impl FromStr for Choice {
     }
 }
 
+impl TryFrom<usize> for Choice {
+    type Error = String;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Choice::A),
+            1 => Ok(Choice::B),
+            2 => Ok(Choice::C),
+            3 => Ok(Choice::D),
+            _ => Err(format!("Invalid choice: '{}'", value)),
+        }
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, PartialEq, Eq)]
 pub struct MCQ {

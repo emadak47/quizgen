@@ -1,29 +1,56 @@
 use quizgen::{mcq, words_api, Question, Section};
+use rand::prelude::*;
 
 fn main() -> anyhow::Result<()> {
     let api = words_api::WordsApi::new(std::env::var("WORDS_API_KEY")?)?;
 
     let mut questions = Vec::new();
-    for word in ["rust"] {
-        let response = api.get_examples(word)?;
+    for word in ["rust", "happy", "strong"] {
+        let examples_resp = api.get_examples(word)?;
+        let synonyms_resp = api.get_synonyms(word)?;
 
-        if response.examples.is_empty() {
+        if examples_resp.examples.is_empty()
+            || synonyms_resp.synonyms.len() < 3
+            || synonyms_resp.word != examples_resp.word
+        {
             continue;
         }
 
-        let answer = mcq::Choice::A;
-        let mcq = mcq::MCQ::new(
-            response.examples[0].clone(),
-            ["rust", "go", "swift", "ruby"],
-            answer,
-        );
+        let mut synonyms: Vec<String> = synonyms_resp
+            .synonyms
+            .into_iter()
+            .filter(|s| s.to_lowercase() != word.to_lowercase())
+            .collect();
+        synonyms.shuffle(&mut rand::rng());
+
+        let mut choices: [String; 4] = synonyms
+            .into_iter()
+            .take(3)
+            .chain([word.to_string()])
+            .collect::<Vec<_>>()
+            .try_into()
+            .expect("Should have exactly 4 choices");
+        choices.shuffle(&mut rand::rng());
+
+        let correct_index = choices
+            .iter()
+            .position(|c| c.to_lowercase() == word.to_lowercase())
+            .expect("Correct choice is present");
+
+        let answer = mcq::Choice::try_from(correct_index).expect("Choice is valid");
+        let example = examples_resp
+            .examples
+            .choose(&mut rand::rng())
+            .expect("Examples are not empty");
+        let mcq = mcq::MCQ::new(example, choices, answer);
 
         questions.push(Question::new(mcq).answer(Some(answer)));
     }
 
+    let num_questions = questions.len();
     let section: Section<mcq::Choice, mcq::MCQ> = Section::new(questions);
-    let grade = quizgen::quiz(1, section);
-    println!("{grade}");
+    let grade = quizgen::quiz(num_questions, section);
+    println!("Your final grade: {:.1}%", grade);
 
     Ok(())
 }
