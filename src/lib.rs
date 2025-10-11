@@ -1,6 +1,7 @@
 pub mod mcq;
 pub mod words_api;
 
+use clap::ValueEnum;
 use std::{
     error::Error,
     fmt::{self, Debug, Display},
@@ -8,6 +9,12 @@ use std::{
     marker,
     str::FromStr,
 };
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum QuizType {
+    Definitions,
+    Synonyms,
+}
 
 pub enum QuizMode {
     Interactive, // Display one question at a time

@@ -1,10 +1,35 @@
-use std::str::FromStr;
+use clap::Parser;
+use std::{path::PathBuf, str::FromStr};
 
-use quizgen::{mcq, words_api, Question, QuizMode, Section};
+use quizgen::{mcq, words_api, Question, QuizMode, QuizType, Section};
 use rand::prelude::*;
+
+fn validate_path(s: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(s);
+    if path.exists() {
+        Ok(path)
+    } else {
+        Err(format!("File does not exist: {s}"))
+    }
+}
+
+#[derive(Debug, Parser)]
+#[command(version, about = "A CLI to construct a quiz")]
+struct QuizArgs {
+    #[arg(long, value_enum, default_value_t = QuizType::Synonyms)]
+    r#type: QuizType,
+
+    #[arg(short, long)]
+    length: usize,
+
+    #[arg(short, long, value_parser = validate_path)]
+    source: PathBuf,
+}
 
 fn main() -> anyhow::Result<()> {
     let api = words_api::WordsApi::new(std::env::var("WORDS_API_KEY")?)?;
+
+    let args = QuizArgs::parse();
 
     let mut questions = Vec::new();
     for word in ["rust", "sad"] {
