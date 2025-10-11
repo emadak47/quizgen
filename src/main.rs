@@ -1,11 +1,13 @@
-use quizgen::{mcq, words_api, Question, Section};
+use std::str::FromStr;
+
+use quizgen::{mcq, words_api, Question, QuizMode, Section};
 use rand::prelude::*;
 
 fn main() -> anyhow::Result<()> {
     let api = words_api::WordsApi::new(std::env::var("WORDS_API_KEY")?)?;
 
     let mut questions = Vec::new();
-    for word in ["rust", "happy", "strong"] {
+    for word in ["rust", "sad"] {
         let examples_resp = api.get_examples(word)?;
         let synonyms_resp = api.get_synonyms(word)?;
 
@@ -49,7 +51,19 @@ fn main() -> anyhow::Result<()> {
 
     let num_questions = questions.len();
     let section: Section<mcq::Choice, mcq::MCQ> = Section::new(questions);
-    let grade = quizgen::quiz(num_questions, section);
+
+    println!("Choose quiz mode:");
+    println!("1. Interactive (one question at a time)");
+    println!("2. Batch (all questions at once)");
+    print!("Enter your choice (1 or 2): ");
+    std::io::Write::flush(&mut std::io::stdout()).unwrap();
+
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+
+    let mode = QuizMode::from_str(&input.trim()).expect("Invalid choice.");
+
+    let grade = quizgen::quiz(num_questions, section, mode);
     println!("Your final grade: {:.1}%", grade);
 
     Ok(())

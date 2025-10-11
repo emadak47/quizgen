@@ -2,24 +2,71 @@ pub mod mcq;
 pub mod words_api;
 
 use std::{
+    error::Error,
     fmt::{self, Debug, Display},
     io::{self, Write},
     marker,
     str::FromStr,
 };
 
-pub fn quiz<T, S>(n: usize, mut section: Section<T, S>) -> f64
+pub enum QuizMode {
+    Interactive, // Display one question at a time
+    Batch,       // Display all questions, then collect anwers
+}
+
+impl FromStr for QuizMode {
+    type Err = Box<dyn Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "interative" | "Interactive" | "1" => Ok(Self::Interactive),
+            "batch" | "Batch" | "2" => Ok(Self::Batch),
+            _ => Err(format!("Cannot parse {}", s).into()),
+        }
+    }
+}
+
+fn interactive_quiz<T, S>(section: Section<T, S>) -> f64
 where
     T: FromStr + Eq + PartialEq + Debug,
     <T as FromStr>::Err: Display,
     S: Solver<T> + Quizzer + Debug + Display,
 {
-    section.prepare(n);
+    let mut answers = Vec::new();
+
+    for (i, question) in section.questions.iter().enumerate() {
+        println!("Question {} of {}", i + 1, section.questions.len());
+        println!("{question}");
+
+        print!("Enter your answer: ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        match input.trim().parse::<T>() {
+            Ok(answer) => answers.push(answer),
+            Err(e) => {
+                println!("Invalid input: {}. Skipping this question.", e);
+                // We'll skip invalid answers by not adding them to the vector
+                // The answer method will handle missing answers with None
+            }
+        }
+    }
+
+    section.answer(answers).grade()
+}
+
+fn batch_quiz<T, S>(section: Section<T, S>) -> f64
+where
+    T: FromStr + Eq + PartialEq + Debug,
+    <T as FromStr>::Err: Display,
+    S: Solver<T> + Quizzer + Debug + Display,
+{
     println!("{section}"); // display the questions
 
-    // Collect answers from user
     let mut answers = Vec::new();
-    for i in 1..=n {
+    for i in 1..=section.questions.len() {
         print!("Enter your answer for question {}: ", i);
         io::stdout().flush().unwrap();
 
@@ -37,6 +84,20 @@ where
     }
 
     section.answer(answers).grade()
+}
+
+pub fn quiz<T, S>(n: usize, mut section: Section<T, S>, quiz_mode: QuizMode) -> f64
+where
+    T: FromStr + Eq + PartialEq + Debug,
+    <T as FromStr>::Err: Display,
+    S: Solver<T> + Quizzer + Debug + Display,
+{
+    section.prepare(n);
+
+    match quiz_mode {
+        QuizMode::Batch => batch_quiz(section),
+        QuizMode::Interactive => interactive_quiz(section),
+    }
 }
 
 pub trait Quizzer {
