@@ -61,10 +61,10 @@ fn main() -> anyhow::Result<()> {
     let mut input = String::new();
     std::io::stdin().read_line(&mut input).unwrap();
 
-    let mode = QuizMode::from_str(&input.trim()).expect("Invalid choice.");
+    let mode = QuizMode::from_str(input.trim()).expect("Invalid choice.");
 
     let grade = quizgen::quiz(num_questions, section, mode);
-    println!("Your final grade: {:.1}%", grade);
+    println!("Your final grade: {grade:.1}%");
 
     Ok(())
 }

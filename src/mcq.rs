@@ -39,7 +39,7 @@ impl TryFrom<usize> for Choice {
             1 => Ok(Choice::B),
             2 => Ok(Choice::C),
             3 => Ok(Choice::D),
-            _ => Err(format!("Invalid choice: '{}'", value)),
+            _ => Err(format!("Invalid choice: '{value}'")),
         }
     }
 }

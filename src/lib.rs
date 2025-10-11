@@ -21,7 +21,7 @@ impl FromStr for QuizMode {
         match s {
             "interative" | "Interactive" | "1" => Ok(Self::Interactive),
             "batch" | "Batch" | "2" => Ok(Self::Batch),
-            _ => Err(format!("Cannot parse {}", s).into()),
+            _ => Err(format!("Cannot parse {s}").into()),
         }
     }
 }
@@ -47,7 +47,7 @@ where
         match input.trim().parse::<T>() {
             Ok(answer) => answers.push(answer),
             Err(e) => {
-                println!("Invalid input: {}. Skipping this question.", e);
+                println!("Invalid input: {e}. Skipping this question.");
                 // We'll skip invalid answers by not adding them to the vector
                 // The answer method will handle missing answers with None
             }
@@ -67,7 +67,7 @@ where
 
     let mut answers = Vec::new();
     for i in 1..=section.questions.len() {
-        print!("Enter your answer for question {}: ", i);
+        print!("Enter your answer for question {i}: ");
         io::stdout().flush().unwrap();
 
         let mut input = String::new();
@@ -76,7 +76,7 @@ where
         match input.trim().parse::<T>() {
             Ok(answer) => answers.push(answer),
             Err(e) => {
-                println!("Invalid input: {}. Skipping this question.", e);
+                println!("Invalid input: {e}. Skipping this question.");
                 // We'll skip invalid answers by not adding them to the vector
                 // The answer method will handle missing answers with None
             }
@@ -219,7 +219,7 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + Debug> Debug for Section<T, S> 
         writeln!(f, "Total Questions: {}\n", self.questions.len())?;
         for (i, q) in self.questions.iter().enumerate() {
             writeln!(f, "Question {}", i + 1)?;
-            writeln!(f, "{:?}", q)?;
+            writeln!(f, "{q:?}")?;
         }
         Ok(())
     }
@@ -230,7 +230,7 @@ impl<T: Eq + PartialEq, S: Solver<T> + Quizzer + Display> Display for Section<T,
         writeln!(f, "Answer the following questions:\n")?;
         for (i, q) in self.questions.iter().enumerate() {
             writeln!(f, "Question {}", i + 1)?;
-            write!(f, "{}", q)?;
+            write!(f, "{q}")?;
         }
         Ok(())
     }
