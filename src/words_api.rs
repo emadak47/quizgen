@@ -51,7 +51,8 @@ pub struct ExampleResponse {
     pub examples: Vec<String>,
 }
 
-enum Details {
+#[derive(Debug)]
+pub enum Details {
     Definitions,
     Synonyms,
     Antonyms,
