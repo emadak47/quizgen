@@ -3,11 +3,13 @@ mod mcq;
 pub mod words_api;
 
 use clap::ValueEnum;
-use std::{fmt, io, marker, str::FromStr, time::Instant};
+use std::{fmt, io, str::FromStr, time::Instant};
 
-pub trait Question<T: fmt::Display + PartialEq + FromStr> {
+pub trait Question {
+    type Answer: PartialEq + FromStr;
+
     fn ask(&self) -> impl fmt::Display;
-    fn answer(&self) -> T;
+    fn answer(&self) -> Self::Answer;
 }
 
 #[derive(Debug)]
@@ -24,7 +26,7 @@ pub enum QuizMode {
     Batch,
 }
 
-pub struct GradeReport<T: PartialEq> {
+pub struct GradeReport<T> {
     start_time: Instant,
     end_time: Instant,
     graded_answers: Vec<(T, Option<T>)>,
@@ -68,35 +70,29 @@ impl<T: PartialEq + fmt::Display> fmt::Display for GradeReport<T> {
     }
 }
 
-pub struct Section<T, Q>
+pub struct Section<Q>
 where
-    Q: Question<T>,
-    T: fmt::Display + PartialEq + FromStr,
+    Q: Question,
 {
     questions: Vec<Q>,
-    _t: marker::PhantomData<T>,
 }
 
-impl<T, Q> Section<T, Q>
+impl<Q> Section<Q>
 where
-    Q: Question<T>,
-    T: fmt::Display + PartialEq + FromStr,
+    Q: Question,
 {
     pub fn new(questions: Vec<Q>) -> Self {
-        Self {
-            questions,
-            _t: marker::PhantomData::<T>,
-        }
+        Self { questions }
     }
 
-    pub fn start_quiz(&self, mode: QuizMode) -> GradeReport<T> {
+    pub fn start_quiz(&self, mode: QuizMode) -> GradeReport<Q::Answer> {
         match mode {
             QuizMode::Interactive => self.interactive_quiz(),
             QuizMode::Batch => self.batch_quiz(),
         }
     }
 
-    fn batch_quiz(&self) -> GradeReport<T> {
+    fn batch_quiz(&self) -> GradeReport<Q::Answer> {
         let mut answers = Vec::with_capacity(self.questions.len());
         let start_time = Instant::now();
 
@@ -109,7 +105,7 @@ where
             io::Write::flush(&mut io::stdout()).unwrap();
             let mut answer = String::new();
             io::stdin().read_line(&mut answer).unwrap();
-            match answer.trim().parse::<T>() {
+            match answer.trim().parse::<Q::Answer>() {
                 Ok(answer) => answers.push(Some(answer)),
                 Err(_) => answers.push(None),
             }
@@ -121,7 +117,7 @@ where
         GradeReport::new(start_time, end_time, grade_answers)
     }
 
-    fn interactive_quiz(&self) -> GradeReport<T> {
+    fn interactive_quiz(&self) -> GradeReport<Q::Answer> {
         let mut answers = Vec::with_capacity(self.questions.len());
         let start_time = Instant::now();
 
@@ -131,7 +127,7 @@ where
             io::Write::flush(&mut io::stdout()).unwrap();
             let mut answer = String::new();
             io::stdin().read_line(&mut answer).unwrap();
-            match answer.trim().parse::<T>() {
+            match answer.trim().parse::<Q::Answer>() {
                 Ok(answer) => answers.push(Some(answer)),
                 Err(_) => answers.push(None),
             };
@@ -143,7 +139,7 @@ where
         GradeReport::new(start_time, end_time, grade_answers)
     }
 
-    fn grade(&self, mut answers: Vec<Option<T>>) -> Vec<(T, Option<T>)> {
+    fn grade(&self, mut answers: Vec<Option<Q::Answer>>) -> Vec<(Q::Answer, Option<Q::Answer>)> {
         answers.resize_with(self.questions.len(), || None);
 
         self.questions

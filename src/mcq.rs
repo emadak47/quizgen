@@ -67,7 +67,9 @@ impl<const N: usize> Mcq<N> {
     }
 }
 
-impl<const N: usize> Question<Choice> for Mcq<N> {
+impl<const N: usize> Question for Mcq<N> {
+    type Answer = Choice;
+
     fn ask(&self) -> impl fmt::Display {
         let solution = &self.choices[self.solution as usize];
 
