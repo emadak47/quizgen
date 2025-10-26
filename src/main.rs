@@ -26,6 +26,15 @@ fn validate_path(s: &str) -> Result<PathBuf, String> {
     }
 }
 
+fn validate_length(s: &str) -> Result<usize, String> {
+    let length: usize = s.parse().map_err(|_| "Not a valid number".to_string())?;
+    if length > 0 {
+        Ok(length)
+    } else {
+        Err("Length must be greater than 0".to_string())
+    }
+}
+
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum QuizTypeCli {
     /// English quiz with synonyms
@@ -52,7 +61,7 @@ struct QuizArgs {
     #[arg(long, value_enum)]
     mode: QuizMode,
 
-    #[arg(short, long)]
+    #[arg(short, long, value_parser = validate_length)]
     length: usize,
 
     #[arg(short, long, value_parser = validate_path)]
