@@ -57,7 +57,7 @@ fn quiz(args: QuizArgs) -> anyhow::Result<()> {
             let api = WordsApi::new(std::env::var(WORDS_API_KEY)?)?;
             let mut english_quiz = EnglishQuiz::new(api, args.source, kind)?;
             let mut questions = Vec::with_capacity(args.length);
-            for _ in 0..args.length {
+            while questions.len() <= args.length && english_quiz.available_words() != 0 {
                 let word = match english_quiz.select_word() {
                     Ok(word) => word.to_lowercase(),
                     Err(e) => match e {

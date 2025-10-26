@@ -39,6 +39,10 @@ impl EnglishQuiz {
         })
     }
 
+    pub fn available_words(&self) -> usize {
+        self.selected.iter().filter(|sel| !*sel).count()
+    }
+
     pub fn select_word(&mut self) -> Result<&str, EnglishQuizError> {
         let index = self
             .selected
