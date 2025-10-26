@@ -40,14 +40,11 @@ impl EnglishQuiz {
     }
 
     pub fn select_word(&mut self) -> Result<&str, EnglishQuizError> {
-        let available_indices: Vec<usize> = self
+        let index = self
             .selected
             .iter()
             .enumerate()
             .filter_map(|(i, &sel)| if !sel { Some(i) } else { None })
-            .collect();
-
-        let index = *available_indices
             .choose(&mut rand::rng())
             .ok_or(EnglishQuizError::DataError)?;
 

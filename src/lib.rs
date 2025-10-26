@@ -97,7 +97,7 @@ where
     }
 
     fn batch_quiz(&self) -> GradeReport<T> {
-        let mut answers = Vec::new();
+        let mut answers = Vec::with_capacity(self.questions.len());
         let start_time = Instant::now();
 
         for (i, question) in self.questions.iter().enumerate() {
@@ -122,7 +122,7 @@ where
     }
 
     fn interactive_quiz(&self) -> GradeReport<T> {
-        let mut answers = Vec::new();
+        let mut answers = Vec::with_capacity(self.questions.len());
         let start_time = Instant::now();
 
         for (i, question) in self.questions.iter().enumerate() {
