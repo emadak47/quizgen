@@ -1,5 +1,5 @@
 use rand::prelude::*;
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::{
     mcq::{Choice, Mcq},
@@ -24,8 +24,8 @@ pub struct EnglishQuiz {
 }
 
 impl EnglishQuiz {
-    pub fn new(api: WordsApi, source: PathBuf, kind: Details) -> Result<Self, EnglishQuizError> {
-        let words: Vec<String> = std::fs::read_to_string(&source)
+    pub fn new(api: WordsApi, source: &Path, kind: Details) -> Result<Self, EnglishQuizError> {
+        let words: Vec<String> = std::fs::read_to_string(source)
             .map_err(EnglishQuizError::FileError)?
             .lines()
             .map(|line| line.trim().to_string())

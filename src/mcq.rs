@@ -1,8 +1,9 @@
 use crate::Question;
 
+use serde::Serialize;
 use std::{fmt, str::FromStr};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
 pub enum Choice {
     A,
     B,
@@ -50,9 +51,10 @@ impl fmt::Display for Choice {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Mcq<const N: usize> {
     statement: String,
+    #[serde(bound(serialize = "[String; N]: Serialize"))]
     choices: [String; N],
     solution: Choice,
 }

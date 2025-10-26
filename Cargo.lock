@@ -862,6 +862,7 @@ dependencies = [
  "rand",
  "reqwest",
  "serde",
+ "serde_json",
  "thiserror",
  "url",
 ]

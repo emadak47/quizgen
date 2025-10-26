@@ -1,5 +1,5 @@
 use clap::{Parser, ValueEnum};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use quizgen::{
     english::{EnglishQuiz, EnglishQuizError},
@@ -55,7 +55,7 @@ fn quiz(args: QuizArgs) -> anyhow::Result<()> {
     match args.r#type.into() {
         QuizType::English(kind) => {
             let api = WordsApi::new(std::env::var(WORDS_API_KEY)?)?;
-            let mut english_quiz = EnglishQuiz::new(api, args.source, kind)?;
+            let mut english_quiz = EnglishQuiz::new(api, &args.source, kind)?;
             let mut questions = Vec::with_capacity(args.length);
             while questions.len() <= args.length && english_quiz.available_words() != 0 {
                 let word = match english_quiz.select_word() {
@@ -81,6 +81,9 @@ fn quiz(args: QuizArgs) -> anyhow::Result<()> {
             let section = Section::new(questions);
             let report = section.start_quiz(args.mode);
             println!("\n\n{report}");
+
+            section.save(Path::new("questions.txt"))?;
+            report.save(Path::new("report.txt"))?;
 
             Ok(())
         }

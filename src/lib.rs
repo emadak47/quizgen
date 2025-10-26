@@ -3,7 +3,8 @@ mod mcq;
 pub mod words_api;
 
 use clap::ValueEnum;
-use std::{fmt, io, str::FromStr, time::Instant};
+use serde::{Deserialize, Serialize};
+use std::{fmt, fs, io, path::Path, str::FromStr, time::Instant};
 
 pub trait Question {
     type Answer: PartialEq + FromStr;
@@ -56,6 +57,13 @@ impl<T: PartialEq> GradeReport<T> {
     }
 }
 
+impl<T: Serialize> GradeReport<T> {
+    pub fn save(&self, dest: &Path) -> Result<(), io::Error> {
+        let contents = serde_json::to_string_pretty(&self.graded_answers)?;
+        fs::write(dest, contents)
+    }
+}
+
 impl<T: PartialEq + fmt::Display> fmt::Display for GradeReport<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Time taken: {:?}", self.end_time - self.start_time)?;
@@ -70,17 +78,12 @@ impl<T: PartialEq + fmt::Display> fmt::Display for GradeReport<T> {
     }
 }
 
-pub struct Section<Q>
-where
-    Q: Question,
-{
+#[derive(Serialize, Deserialize)]
+pub struct Section<Q: Question> {
     questions: Vec<Q>,
 }
 
-impl<Q> Section<Q>
-where
-    Q: Question,
-{
+impl<Q: Question> Section<Q> {
     pub fn new(questions: Vec<Q>) -> Self {
         Self { questions }
     }
@@ -147,5 +150,12 @@ where
             .zip(answers)
             .map(|(q, a)| (q.answer(), a))
             .collect()
+    }
+}
+
+impl<Q: Question + Serialize> Section<Q> {
+    pub fn save(&self, dest: &Path) -> Result<(), io::Error> {
+        let contents = serde_json::to_string_pretty(&self)?;
+        fs::write(dest, contents)
     }
 }
