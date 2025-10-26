@@ -3,7 +3,7 @@ mod mcq;
 pub mod words_api;
 
 use clap::ValueEnum;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{fmt, fs, io, path::Path, str::FromStr, time::Instant};
 
 pub trait Question {
@@ -55,12 +55,14 @@ impl<T: PartialEq> GradeReport<T> {
             .count();
         correct as f64 / total as f64 * 100.0
     }
-}
 
-impl<T: Serialize> GradeReport<T> {
-    pub fn save(&self, dest: &Path) -> Result<(), io::Error> {
+    pub fn save<P>(&self, path: P) -> Result<(), io::Error>
+    where
+        T: Serialize,
+        P: AsRef<Path>,
+    {
         let contents = serde_json::to_string_pretty(&self.graded_answers)?;
-        fs::write(dest, contents)
+        fs::write(path, contents)
     }
 }
 
@@ -78,7 +80,6 @@ impl<T: PartialEq + fmt::Display> fmt::Display for GradeReport<T> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Section<Q: Question> {
     questions: Vec<Q>,
 }
@@ -151,11 +152,13 @@ impl<Q: Question> Section<Q> {
             .map(|(q, a)| (q.answer(), a))
             .collect()
     }
-}
 
-impl<Q: Question + Serialize> Section<Q> {
-    pub fn save(&self, dest: &Path) -> Result<(), io::Error> {
-        let contents = serde_json::to_string_pretty(&self)?;
-        fs::write(dest, contents)
+    pub fn save<P>(&self, path: P) -> Result<(), io::Error>
+    where
+        Q: Serialize,
+        P: AsRef<Path>,
+    {
+        let contents = serde_json::to_string_pretty(&self.questions)?;
+        fs::write(path, contents)
     }
 }
