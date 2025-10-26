@@ -10,6 +10,7 @@ pub trait Question {
     type Answer: PartialEq + FromStr;
 
     fn ask(&self) -> impl fmt::Display;
+    fn attempt(&self, statement: &str) -> Option<Self::Answer>;
     fn answer(&self) -> Self::Answer;
 }
 
@@ -126,15 +127,9 @@ impl<Q: Question> Section<Q> {
         let start_time = Instant::now();
 
         for (i, question) in self.questions.iter().enumerate() {
-            println!("Question {}: {}", i + 1, question.ask());
-            print!("Enter your answer: ");
-            io::Write::flush(&mut io::stdout()).unwrap();
-            let mut answer = String::new();
-            io::stdin().read_line(&mut answer).unwrap();
-            match answer.trim().parse::<Q::Answer>() {
-                Ok(answer) => answers.push(Some(answer)),
-                Err(_) => answers.push(None),
-            };
+            let statement = format!("Question {}: {}", i + 1, question.ask());
+            answers.push(question.attempt(&statement));
+            println!("\n");
         }
 
         let end_time = Instant::now();

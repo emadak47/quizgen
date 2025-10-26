@@ -1,5 +1,6 @@
 use crate::Question;
 
+use inquire::Select;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
@@ -75,18 +76,25 @@ impl<const N: usize> Question for Mcq<N> {
 
     fn ask(&self) -> impl fmt::Display {
         let solution = &self.choices[self.solution as usize];
-
         let statement = self.statement.replacen(solution, "[.....]", 1);
 
-        let choices = self
+        format!("{statement}\n")
+    }
+
+    fn attempt(&self, statement: &str) -> Option<Self::Answer> {
+        let options = self
             .choices
             .iter()
             .enumerate()
             .map(|(idx, choice)| format!("\t{}. {}", (b'A' + idx as u8) as char, choice))
-            .collect::<Vec<_>>()
-            .join("\n");
+            .collect::<Vec<_>>();
 
-        format!("{statement}\n\n{choices}\n")
+        Select::new(statement, options)
+            .prompt()
+            .ok()?
+            .get(0..2)
+            .map(|ch| Choice::from_str(ch).ok())
+            .flatten()
     }
 
     fn answer(&self) -> Choice {
