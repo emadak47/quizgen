@@ -76,11 +76,11 @@ where
     Q::Answer: for<'a> Deserialize<'a>,
 {
     let path = Path::new(QUESTIONS_FILE);
-    let reader = BufReader::new(File::open(&path)?);
+    let reader = BufReader::new(File::open(path)?);
     let questions: Vec<Q> = serde_json::from_reader(reader)?;
 
     let path = Path::new(ANSWERS_FILE);
-    let reader = BufReader::new(File::open(&path)?);
+    let reader = BufReader::new(File::open(path)?);
     let answers: Vec<(Q::Answer, Option<Q::Answer>)> = serde_json::from_reader(reader)?;
 
     Ok(questions

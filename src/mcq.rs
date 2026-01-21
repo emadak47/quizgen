@@ -93,8 +93,7 @@ impl<const N: usize> Question for Mcq<N> {
             .prompt()
             .ok()?
             .get(0..2)
-            .map(|ch| Choice::from_str(ch).ok())
-            .flatten()
+            .and_then(|ch| Choice::from_str(ch).ok())
     }
 
     fn answer(&self) -> Choice {
