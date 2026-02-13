@@ -8,8 +8,8 @@ use std::{
 };
 
 use quizgen::{
-    english::{EnglishQuiz, EnglishQuizError},
-    words_api::{Details, WordsApi},
+    english::{Details, EnglishQuiz, EnglishQuizError},
+    words_api::WordsApi,
     Question, QuizMode, QuizType, Section,
 };
 

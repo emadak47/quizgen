@@ -2,6 +2,10 @@ use reqwest::blocking::{Client, Response};
 use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
 
+use super::english::{
+    AntonymResponse, DefinitionResponse, Details, ExampleResponse, SynonymResponse,
+};
+
 #[derive(Debug, Deserialize)]
 pub struct WordResponse {
     pub word: String,
@@ -21,53 +25,15 @@ pub struct WordDetails {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DefinitionResponse {
-    pub word: String,
-    pub definitions: Vec<Definition>,
+struct DefinitionResponseTemp {
+    word: String,
+    definitions: Vec<Definition>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Definition {
-    pub definition: String,
-    pub part_of_speech: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SynonymResponse {
-    pub word: String,
-    pub synonyms: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct AntonymResponse {
-    pub word: String,
-    pub antonyms: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ExampleResponse {
-    pub word: String,
-    pub examples: Vec<String>,
-}
-
-#[derive(Debug)]
-pub enum Details {
-    Definitions,
-    Synonyms,
-    Antonyms,
-    Examples,
-}
-
-impl std::fmt::Display for Details {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Details::Definitions => write!(f, "definitions"),
-            Details::Synonyms => write!(f, "synonyms"),
-            Details::Antonyms => write!(f, "antonyms"),
-            Details::Examples => write!(f, "examples"),
-        }
-    }
+struct Definition {
+    definition: String,
 }
 
 pub struct WordsApi {
@@ -113,7 +79,16 @@ impl WordsApi {
     }
 
     pub fn get_definitions(&self, word: impl AsRef<str>) -> anyhow::Result<DefinitionResponse> {
-        self.get(word, Some(Details::Definitions))
+        let resp: DefinitionResponseTemp = self.get(word, Some(Details::Definitions))?;
+
+        Ok(DefinitionResponse {
+            word: resp.word,
+            definitions: resp
+                .definitions
+                .into_iter()
+                .map(|def| def.definition)
+                .collect(),
+        })
     }
 
     pub fn get_synonyms(&self, word: impl AsRef<str>) -> anyhow::Result<SynonymResponse> {

@@ -1,9 +1,10 @@
 use rand::prelude::*;
+use serde::Deserialize;
 use std::path::Path;
 
 use crate::{
     mcq::{Choice, Mcq},
-    words_api::{Details, SynonymResponse, WordsApi},
+    words_api::WordsApi,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -14,6 +15,49 @@ pub enum EnglishQuizError {
     DataError,
     #[error("File error: {0}")]
     FileError(#[from] std::io::Error),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DefinitionResponse {
+    pub word: String,
+    pub definitions: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SynonymResponse {
+    pub word: String,
+    pub synonyms: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AntonymResponse {
+    pub word: String,
+    pub antonyms: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExampleResponse {
+    pub word: String,
+    pub examples: Vec<String>,
+}
+
+#[derive(Debug)]
+pub enum Details {
+    Definitions,
+    Synonyms,
+    Antonyms,
+    Examples,
+}
+
+impl std::fmt::Display for Details {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Details::Definitions => write!(f, "definitions"),
+            Details::Synonyms => write!(f, "synonyms"),
+            Details::Antonyms => write!(f, "antonyms"),
+            Details::Examples => write!(f, "examples"),
+        }
+    }
 }
 
 pub struct EnglishQuiz {
@@ -121,7 +165,7 @@ impl EnglishQuiz {
 
                 let definition_index =
                     rand::rng().random_range(0..definition_resp.definitions.len());
-                std::mem::take(&mut definition_resp.definitions[definition_index].definition)
+                std::mem::take(&mut definition_resp.definitions[definition_index])
             }
             _ => unimplemented!(),
         };

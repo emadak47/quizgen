@@ -16,7 +16,7 @@ pub trait Question {
 
 #[derive(Debug)]
 pub enum QuizType {
-    English(words_api::Details),
+    English(english::Details),
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum, Default)]
