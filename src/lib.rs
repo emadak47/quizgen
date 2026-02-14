@@ -25,8 +25,18 @@ pub enum QuizMode {
     /// Display one question at a time
     #[default]
     Interactive,
-    /// Display all questions, then collect anwers
+    /// Display all questions, then collect answers
     Batch,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum QuizgenError {
+    #[error("API error")]
+    ApiError(anyhow::Error),
+    #[error("Data is invalid")]
+    DataError,
+    #[error("File error: {0}")]
+    FileError(#[from] std::io::Error),
 }
 
 pub struct GradeReport<T> {
@@ -87,8 +97,27 @@ pub struct Section<Q: Question> {
 }
 
 impl<Q: Question> Section<Q> {
-    pub fn new(questions: Vec<Q>) -> Self {
-        Self { questions }
+    pub fn from_quizzer(
+        len: usize,
+        prev_questions: Option<Vec<Q>>,
+        mut f: impl FnMut() -> Option<Result<Q, QuizgenError>>,
+    ) -> Result<Self, QuizgenError> {
+        let mut questions = prev_questions.unwrap_or_else(|| Vec::new());
+        questions.reserve_exact(len);
+
+        while questions.len() < len {
+            match f() {
+                Some(res) => match res {
+                    Ok(q) => questions.push(q),
+                    Err(QuizgenError::DataError) => continue,
+                    Err(e @ QuizgenError::ApiError(_)) => return Err(e),
+                    _ => unreachable!(),
+                },
+                None => break,
+            }
+        }
+
+        Ok(Self { questions })
     }
 
     pub fn start_quiz(&self, mode: QuizMode) -> GradeReport<Q::Answer> {

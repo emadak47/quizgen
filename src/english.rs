@@ -2,17 +2,10 @@ use rand::prelude::*;
 use serde::Deserialize;
 use std::path::Path;
 
-use crate::mcq::{Choice, Mcq};
-
-#[derive(thiserror::Error, Debug)]
-pub enum EnglishQuizError {
-    #[error("API error")]
-    ApiError(anyhow::Error),
-    #[error("Data is invalid")]
-    DataError,
-    #[error("File error: {0}")]
-    FileError(#[from] std::io::Error),
-}
+use crate::{
+    mcq::{Choice, Mcq},
+    QuizgenError,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct DefinitionResponse {
@@ -64,11 +57,21 @@ pub trait EnglishApi {
     fn get_antonyms(&self, word: &str) -> anyhow::Result<AntonymResponse>;
 }
 
+fn select_random<T, const N: usize>(buf: &mut Vec<T>, rng: &mut ThreadRng) -> Option<[T; N]> {
+    if buf.len() < N {
+        return None;
+    }
+
+    Some(core::array::from_fn(|_| {
+        let rnd_idx = rng.random_range(..buf.len());
+        buf.swap_remove(rnd_idx)
+    }))
+}
+
 pub struct EnglishQuiz {
     apis: [Box<dyn EnglishApi>; 2],
     kind: Details,
     words: Vec<String>,
-    selected: Vec<bool>,
 }
 
 impl EnglishQuiz {
@@ -76,64 +79,17 @@ impl EnglishQuiz {
         apis: [Box<dyn EnglishApi>; 2],
         source: &Path,
         kind: Details,
-    ) -> Result<Self, EnglishQuizError> {
+    ) -> Result<Self, QuizgenError> {
         let words: Vec<String> = std::fs::read_to_string(source)
-            .map_err(EnglishQuizError::FileError)?
+            .map_err(QuizgenError::FileError)?
             .lines()
             .map(|line| line.trim().to_string())
             .collect();
 
-        Ok(Self {
-            apis,
-            kind,
-            selected: vec![false; words.len()],
-            words,
-        })
+        Ok(Self { apis, kind, words })
     }
 
-    pub fn available_words(&self) -> usize {
-        self.selected.iter().filter(|sel| !*sel).count()
-    }
-
-    pub fn select_word(&mut self) -> Result<&str, EnglishQuizError> {
-        let index = self
-            .selected
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &sel)| if !sel { Some(i) } else { None })
-            .choose(&mut rand::rng())
-            .ok_or(EnglishQuizError::DataError)?;
-
-        self.selected[index] = true;
-
-        Ok(&self.words[index])
-    }
-
-    fn generate_choices<const N: usize>(
-        &self,
-        word: &str,
-        synonyms_resp: SynonymResponse,
-    ) -> Result<[String; N], EnglishQuizError> {
-        let mut synonyms: Vec<String> = synonyms_resp
-            .synonyms
-            .into_iter()
-            .filter(|s| s.to_lowercase() != word.to_lowercase())
-            .collect();
-        synonyms.shuffle(&mut rand::rng());
-
-        let mut choices: [String; N] = synonyms
-            .into_iter()
-            .take(N - 1)
-            .chain([word.to_string()])
-            .collect::<Vec<_>>()
-            .try_into()
-            .map_err(|_| EnglishQuizError::DataError)?;
-        choices.shuffle(&mut rand::rng());
-
-        Ok(choices)
-    }
-
-    fn try_get<F, T>(&self, f: F) -> Result<T, EnglishQuizError>
+    fn try_get<F, T>(&self, f: F) -> Result<T, QuizgenError>
     where
         F: Fn(&dyn EnglishApi) -> anyhow::Result<T>,
     {
@@ -144,51 +100,73 @@ impl EnglishQuiz {
                 Err(e) => last_err = Some(e),
             }
         }
-        Err(EnglishQuizError::ApiError(last_err.unwrap()))
+        Err(QuizgenError::ApiError(last_err.unwrap()))
     }
 
-    pub fn generate_mcq<const N: usize>(&self, word: &str) -> Result<Mcq<N>, EnglishQuizError> {
-        let synonyms_resp = self.try_get(|api| api.get_synonyms(word))?;
-
-        let statement = match self.kind {
-            Details::Synonyms => {
-                let mut examples_resp = self.try_get(|api| api.get_examples(word))?;
-
-                if examples_resp.examples.is_empty()
-                    || synonyms_resp.synonyms.len() < N - 1
-                    || synonyms_resp.word != examples_resp.word
-                    || synonyms_resp.word != word
-                {
-                    return Err(EnglishQuizError::DataError);
+    pub fn gen_rand_mcq<const N: usize>(&mut self) -> Option<Result<Mcq<N>, QuizgenError>> {
+        if let Some([word]) = select_random(&mut self.words, &mut rand::rng()) {
+            match self.gen_mcq(&word) {
+                Ok(q) => return Some(Ok(q)),
+                Err(e @ (QuizgenError::DataError | QuizgenError::ApiError(_))) => {
+                    return Some(Err(e))
                 }
+                _ => unreachable!(),
+            }
+        }
+        None
+    }
 
-                let example_index = rand::rng().random_range(0..examples_resp.examples.len());
-                std::mem::take(&mut examples_resp.examples[example_index])
+    fn gen_mcq<const N: usize>(&mut self, word: &str) -> Result<Mcq<N>, QuizgenError> {
+        let mut rng = rand::rng();
+
+        let (word, statement) = match self.kind {
+            Details::Synonyms => {
+                let SynonymResponse { word, mut synonyms } =
+                    self.try_get(|api| api.get_synonyms(word))?;
+
+                let synonyms: [_; N] =
+                    select_random(&mut synonyms, &mut rng).ok_or(QuizgenError::DataError)?;
+                let statement = synonyms.join(", ");
+
+                (word, statement)
+            }
+            Details::Antonyms => {
+                let AntonymResponse { word, mut antonyms } =
+                    self.try_get(|api| api.get_antonyms(word))?;
+
+                let antonyms: [_; N] =
+                    select_random(&mut antonyms, &mut rng).ok_or(QuizgenError::DataError)?;
+                let statement = antonyms.join(", ");
+
+                (word, statement)
+            }
+            Details::Examples => {
+                let ExampleResponse { word, mut examples } =
+                    self.try_get(|api| api.get_examples(word))?;
+
+                let [statement] = select_random(&mut examples, &mut rng)
+                    .ok_or_else(|| QuizgenError::DataError)?;
+
+                (word, statement)
             }
             Details::Definitions => {
-                let mut definition_resp = self.try_get(|api| api.get_definitions(word))?;
+                let DefinitionResponse {
+                    word,
+                    mut definitions,
+                } = self.try_get(|api| api.get_definitions(word))?;
 
-                if definition_resp.definitions.is_empty()
-                    || synonyms_resp.synonyms.len() < N - 1
-                    || synonyms_resp.word != definition_resp.word
-                    || synonyms_resp.word != word
-                {
-                    return Err(EnglishQuizError::DataError);
-                }
+                let [statement] = select_random(&mut definitions, &mut rng)
+                    .ok_or_else(|| QuizgenError::DataError)?;
 
-                let definition_index =
-                    rand::rng().random_range(0..definition_resp.definitions.len());
-                std::mem::take(&mut definition_resp.definitions[definition_index])
+                (word, statement)
             }
-            _ => unimplemented!(),
         };
 
-        let choices = self.generate_choices(word, synonyms_resp)?;
-        let correct_index = choices
-            .iter()
-            .position(|c| c.to_lowercase() == word.to_lowercase())
-            .expect("Correct choice is present");
-        let solution = Choice::try_from(correct_index).expect("Choice is valid");
+        let mut choices: [_; N] =
+            select_random(&mut self.words, &mut rng).ok_or(QuizgenError::DataError)?;
+        let rnd_idx = rng.random_range(..N);
+        let solution = Choice::try_from(rnd_idx).expect("Choice is valid");
+        choices[rnd_idx] = word;
 
         Ok(Mcq::new(statement, choices, solution))
     }

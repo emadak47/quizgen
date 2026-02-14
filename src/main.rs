@@ -8,7 +8,7 @@ use std::{
 };
 
 use quizgen::{
-    english::{Details, EnglishQuiz, EnglishQuizError},
+    english::{Details, EnglishQuiz},
     webster::WebsterApi,
     words_api::WordsApi,
     Question, QuizMode, QuizType, Section,
@@ -41,17 +41,19 @@ fn validate_length(s: &str) -> Result<usize, String> {
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum QuizTypeCli {
-    /// English quiz with synonyms
-    EnglishSynonyms,
-    /// English quiz with definitions
-    EnglishDefinitions,
+    Synonyms,
+    Antonyms,
+    Definitions,
+    Examples,
 }
 
 impl From<QuizTypeCli> for QuizType {
     fn from(cli_type: QuizTypeCli) -> Self {
         match cli_type {
-            QuizTypeCli::EnglishSynonyms => QuizType::English(Details::Synonyms),
-            QuizTypeCli::EnglishDefinitions => QuizType::English(Details::Definitions),
+            QuizTypeCli::Synonyms => QuizType::English(Details::Synonyms),
+            QuizTypeCli::Antonyms => QuizType::English(Details::Antonyms),
+            QuizTypeCli::Definitions => QuizType::English(Details::Definitions),
+            QuizTypeCli::Examples => QuizType::English(Details::Examples),
         }
     }
 }
@@ -70,6 +72,9 @@ struct QuizArgs {
 
     #[arg(short, long, value_parser = validate_path)]
     source: PathBuf,
+
+    #[arg(short, long, default_value_t = false)]
+    prev: bool,
 }
 
 /// Loads questions from previous quiz which were unanswered or
@@ -97,59 +102,43 @@ where
 fn quiz(args: QuizArgs) -> anyhow::Result<()> {
     match args.r#type.into() {
         QuizType::English(kind) => {
+            let prev_questions: Option<Vec<_>> = if args.prev {
+                match load_questions() {
+                    Ok(mut questions) => {
+                        questions.shuffle(&mut rand::rng());
+                        questions.truncate(args.length / 5);
+                        Some(questions)
+                    }
+                    Err(e)
+                        if matches!(
+                            e.kind(),
+                            io::ErrorKind::NotFound | io::ErrorKind::UnexpectedEof
+                        ) =>
+                    {
+                        None
+                    }
+                    Err(e) => return Err(e.into()),
+                }
+            } else {
+                None
+            };
+
             let words_api = WordsApi::new(std::env::var(WORDS_API_KEY)?)?;
             let webster_api = WebsterApi::new(
                 std::env::var(COLLEGIATE_API_KEY)?,
                 std::env::var(THESAURUS_API_KEY)?,
             )?;
-
-            let mut questions = match load_questions() {
-                Ok(mut questions) => {
-                    questions.shuffle(&mut rand::rng());
-                    questions.truncate(args.length / 5);
-                    questions.reserve(args.length);
-                    questions
-                }
-                Err(e)
-                    if matches!(
-                        e.kind(),
-                        io::ErrorKind::NotFound | io::ErrorKind::UnexpectedEof
-                    ) =>
-                {
-                    Vec::with_capacity(args.length)
-                }
-                Err(e) => return Err(e.into()),
-            };
-
             let mut english_quiz = EnglishQuiz::new(
                 [Box::new(words_api), Box::new(webster_api)],
                 &args.source,
                 kind,
             )?;
 
-            while questions.len() < args.length && english_quiz.available_words() != 0 {
-                let word = match english_quiz.select_word() {
-                    Ok(word) => word.to_lowercase(),
-                    Err(e) => match e {
-                        EnglishQuizError::ApiError(e) => return Err(e),
-                        EnglishQuizError::DataError => continue,
-                        EnglishQuizError::FileError(e) => return Err(e.into()),
-                    },
-                };
-
-                let question = match english_quiz.generate_mcq::<4>(&word) {
-                    Ok(question) => question,
-                    Err(e) => match e {
-                        EnglishQuizError::ApiError(e) => return Err(e),
-                        EnglishQuizError::DataError => continue,
-                        EnglishQuizError::FileError(e) => return Err(e.into()),
-                    },
-                };
-                questions.push(question);
-            }
-
-            let section = Section::new(questions);
+            let section = Section::from_quizzer(args.length, prev_questions, || {
+                english_quiz.gen_rand_mcq::<4>()
+            })?;
             let report = section.start_quiz(args.mode);
+
             println!("\n\n{report}");
 
             section.save(Path::new(QUESTIONS_FILE))?;
