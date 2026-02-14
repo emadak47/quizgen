@@ -5,30 +5,49 @@ use serde::Deserialize;
 use std::fmt;
 use url::Url;
 
-use super::english::{DefinitionResponse, ExampleResponse};
+use super::english::{
+    AntonymResponse, DefinitionResponse, Details, ExampleResponse, SynonymResponse,
+};
 
 pub struct WebsterApi {
     base_url: Url,
-    api_key: String,
+    collegiate_api_key: String,
+    thesaurus_api_key: String,
     client: Client,
     regex: Regex,
 }
 
 impl WebsterApi {
-    pub fn new(api_key: impl Into<String>) -> anyhow::Result<Self> {
+    pub fn new(
+        collegiate_api_key: impl Into<String>,
+        thesaurus_api_key: impl Into<String>,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
-            base_url: Url::parse(
-                "https://www.dictionaryapi.com/api/v3/references/collegiate/json/",
-            )?,
-            api_key: api_key.into(),
+            base_url: Url::parse("https://www.dictionaryapi.com/")?,
+            collegiate_api_key: collegiate_api_key.into(),
+            thesaurus_api_key: thesaurus_api_key.into(),
             client: Client::new(),
             regex: Regex::new(r"\{[^{}]*\}").unwrap(),
         })
     }
 
-    fn get<T: DeserializeOwned>(&self, word: impl AsRef<str>) -> anyhow::Result<T> {
-        let mut url = self.base_url.join(word.as_ref())?;
-        url.set_query(Some(&format!("key={}", self.api_key)));
+    fn get<T: DeserializeOwned>(
+        &self,
+        word: impl AsRef<str>,
+        details: Details,
+    ) -> anyhow::Result<T> {
+        let (path, api_key) = match details {
+            Details::Definitions | Details::Examples => (
+                format!("api/v3/references/collegiate/json/{}", word.as_ref()),
+                &self.collegiate_api_key,
+            ),
+            Details::Synonyms | Details::Antonyms => (
+                format!("api/v3/references/thesaurus/json/{}", word.as_ref()),
+                &self.thesaurus_api_key,
+            ),
+        };
+        let mut url = self.base_url.join(&path)?;
+        url.set_query(Some(&format!("key={}", api_key)));
 
         let response = self.client.get(url).send()?;
 
@@ -36,7 +55,7 @@ impl WebsterApi {
     }
 
     pub fn get_definitions(&self, word: impl AsRef<str>) -> anyhow::Result<DefinitionResponse> {
-        let resp: Vec<CollegiateEntry> = self.get(word)?;
+        let resp: Vec<CollegiateEntry> = self.get(word, Details::Definitions)?;
         let entry = resp
             .into_iter()
             .next()
@@ -70,7 +89,7 @@ impl WebsterApi {
     }
 
     pub fn get_examples(&self, word: impl AsRef<str>) -> anyhow::Result<ExampleResponse> {
-        let resp: Vec<CollegiateEntry> = self.get(word)?;
+        let resp: Vec<CollegiateEntry> = self.get(word, Details::Examples)?;
         let entry = resp
             .into_iter()
             .next()
@@ -99,6 +118,34 @@ impl WebsterApi {
             .collect();
 
         Ok(ExampleResponse { word, examples })
+    }
+
+    pub fn get_synonyms(&self, word: impl AsRef<str>) -> anyhow::Result<SynonymResponse> {
+        let resp: Vec<ThesaurusEntry> = self.get(word, Details::Synonyms)?;
+        let entry = resp
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("empty response"))?;
+
+        let ThesaurusEntry { meta } = entry;
+        let word = meta.id;
+        let synonyms = meta.syns.into_iter().flatten().collect();
+
+        Ok(SynonymResponse { word, synonyms })
+    }
+
+    pub fn get_antonyms(&self, word: impl AsRef<str>) -> anyhow::Result<AntonymResponse> {
+        let resp: Vec<ThesaurusEntry> = self.get(word, Details::Antonyms)?;
+        let entry = resp
+            .into_iter()
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("empty response"))?;
+
+        let ThesaurusEntry { meta } = entry;
+        let word = meta.id;
+        let antonyms = meta.ants.into_iter().flatten().collect();
+
+        Ok(AntonymResponse { word, antonyms })
     }
 
     fn clean_markup(&self, s: String) -> Option<String> {
@@ -250,4 +297,17 @@ impl<'de> Deserialize<'de> for DtElement {
         }
         deserializer.deserialize_seq(DtElementVisitor)
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ThesaurusEntry {
+    pub meta: ThesaurusMeta,
+    // pub def: Option<Vec<ThesaurusDefSection>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ThesaurusMeta {
+    pub id: String,
+    pub syns: Vec<Vec<String>>,
+    pub ants: Vec<Vec<String>>,
 }
