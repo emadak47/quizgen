@@ -9,11 +9,15 @@ use std::{
 
 use quizgen::{
     english::{Details, EnglishQuiz, EnglishQuizError},
+    webster::WebsterApi,
     words_api::WordsApi,
     Question, QuizMode, QuizType, Section,
 };
 
 const WORDS_API_KEY: &str = "WORDS_API_KEY";
+const COLLEGIATE_API_KEY: &str = "COLLEGIATE_API_KEY";
+const THESAURUS_API_KEY: &str = "THESAURUS_API_KEY";
+
 const ANSWERS_FILE: &str = "answers.txt";
 const QUESTIONS_FILE: &str = "questions.txt";
 
@@ -93,7 +97,11 @@ where
 fn quiz(args: QuizArgs) -> anyhow::Result<()> {
     match args.r#type.into() {
         QuizType::English(kind) => {
-            let api = WordsApi::new(std::env::var(WORDS_API_KEY)?)?;
+            let words_api = WordsApi::new(std::env::var(WORDS_API_KEY)?)?;
+            let webster_api = WebsterApi::new(
+                std::env::var(COLLEGIATE_API_KEY)?,
+                std::env::var(THESAURUS_API_KEY)?,
+            )?;
 
             let mut questions = match load_questions() {
                 Ok(mut questions) => {
@@ -113,7 +121,11 @@ fn quiz(args: QuizArgs) -> anyhow::Result<()> {
                 Err(e) => return Err(e.into()),
             };
 
-            let mut english_quiz = EnglishQuiz::new(api, &args.source, kind)?;
+            let mut english_quiz = EnglishQuiz::new(
+                [Box::new(words_api), Box::new(webster_api)],
+                &args.source,
+                kind,
+            )?;
 
             while questions.len() < args.length && english_quiz.available_words() != 0 {
                 let word = match english_quiz.select_word() {

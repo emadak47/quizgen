@@ -3,7 +3,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
 
 use super::english::{
-    AntonymResponse, DefinitionResponse, Details, ExampleResponse, SynonymResponse,
+    AntonymResponse, DefinitionResponse, Details, EnglishApi, ExampleResponse, SynonymResponse,
 };
 
 #[derive(Debug, Deserialize)]
@@ -78,7 +78,19 @@ impl WordsApi {
         self.get(word, None)
     }
 
-    pub fn get_definitions(&self, word: impl AsRef<str>) -> anyhow::Result<DefinitionResponse> {
+    fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
+        let status = response.status();
+
+        if status.is_success() {
+            response.json().map_err(|e| e.into())
+        } else {
+            anyhow::bail!("HTTP error {} {}", status, response.text()?);
+        }
+    }
+}
+
+impl EnglishApi for WordsApi {
+    fn get_definitions(&self, word: &str) -> anyhow::Result<DefinitionResponse> {
         let resp: DefinitionResponseTemp = self.get(word, Some(Details::Definitions))?;
 
         Ok(DefinitionResponse {
@@ -91,25 +103,15 @@ impl WordsApi {
         })
     }
 
-    pub fn get_synonyms(&self, word: impl AsRef<str>) -> anyhow::Result<SynonymResponse> {
+    fn get_synonyms(&self, word: &str) -> anyhow::Result<SynonymResponse> {
         self.get(word, Some(Details::Synonyms))
     }
 
-    pub fn get_antonyms(&self, word: impl AsRef<str>) -> anyhow::Result<AntonymResponse> {
+    fn get_antonyms(&self, word: &str) -> anyhow::Result<AntonymResponse> {
         self.get(word, Some(Details::Antonyms))
     }
 
-    pub fn get_examples(&self, word: impl AsRef<str>) -> anyhow::Result<ExampleResponse> {
+    fn get_examples(&self, word: &str) -> anyhow::Result<ExampleResponse> {
         self.get(word, Some(Details::Examples))
-    }
-
-    fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
-        let status = response.status();
-
-        if status.is_success() {
-            response.json().map_err(|e| e.into())
-        } else {
-            anyhow::bail!("HTTP error {} {}", status, response.text()?);
-        }
     }
 }

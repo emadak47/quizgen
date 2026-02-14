@@ -2,10 +2,7 @@ use rand::prelude::*;
 use serde::Deserialize;
 use std::path::Path;
 
-use crate::{
-    mcq::{Choice, Mcq},
-    words_api::WordsApi,
-};
+use crate::mcq::{Choice, Mcq};
 
 #[derive(thiserror::Error, Debug)]
 pub enum EnglishQuizError {
@@ -60,15 +57,26 @@ impl std::fmt::Display for Details {
     }
 }
 
+pub trait EnglishApi {
+    fn get_definitions(&self, word: &str) -> anyhow::Result<DefinitionResponse>;
+    fn get_examples(&self, word: &str) -> anyhow::Result<ExampleResponse>;
+    fn get_synonyms(&self, word: &str) -> anyhow::Result<SynonymResponse>;
+    fn get_antonyms(&self, word: &str) -> anyhow::Result<AntonymResponse>;
+}
+
 pub struct EnglishQuiz {
-    api: WordsApi,
+    apis: [Box<dyn EnglishApi>; 2],
     kind: Details,
     words: Vec<String>,
     selected: Vec<bool>,
 }
 
 impl EnglishQuiz {
-    pub fn new(api: WordsApi, source: &Path, kind: Details) -> Result<Self, EnglishQuizError> {
+    pub fn new(
+        apis: [Box<dyn EnglishApi>; 2],
+        source: &Path,
+        kind: Details,
+    ) -> Result<Self, EnglishQuizError> {
         let words: Vec<String> = std::fs::read_to_string(source)
             .map_err(EnglishQuizError::FileError)?
             .lines()
@@ -76,7 +84,7 @@ impl EnglishQuiz {
             .collect();
 
         Ok(Self {
-            api,
+            apis,
             kind,
             selected: vec![false; words.len()],
             words,
@@ -125,18 +133,26 @@ impl EnglishQuiz {
         Ok(choices)
     }
 
+    fn try_get<F, T>(&self, f: F) -> Result<T, EnglishQuizError>
+    where
+        F: Fn(&dyn EnglishApi) -> anyhow::Result<T>,
+    {
+        let mut last_err = None;
+        for api in &self.apis {
+            match f(api.as_ref()) {
+                Ok(t) => return Ok(t),
+                Err(e) => last_err = Some(e),
+            }
+        }
+        Err(EnglishQuizError::ApiError(last_err.unwrap()))
+    }
+
     pub fn generate_mcq<const N: usize>(&self, word: &str) -> Result<Mcq<N>, EnglishQuizError> {
-        let synonyms_resp = self
-            .api
-            .get_synonyms(word)
-            .map_err(EnglishQuizError::ApiError)?;
+        let synonyms_resp = self.try_get(|api| api.get_synonyms(word))?;
 
         let statement = match self.kind {
             Details::Synonyms => {
-                let mut examples_resp = self
-                    .api
-                    .get_examples(word)
-                    .map_err(EnglishQuizError::ApiError)?;
+                let mut examples_resp = self.try_get(|api| api.get_examples(word))?;
 
                 if examples_resp.examples.is_empty()
                     || synonyms_resp.synonyms.len() < N - 1
@@ -150,10 +166,7 @@ impl EnglishQuiz {
                 std::mem::take(&mut examples_resp.examples[example_index])
             }
             Details::Definitions => {
-                let mut definition_resp = self
-                    .api
-                    .get_definitions(word)
-                    .map_err(EnglishQuizError::ApiError)?;
+                let mut definition_resp = self.try_get(|api| api.get_definitions(word))?;
 
                 if definition_resp.definitions.is_empty()
                     || synonyms_resp.synonyms.len() < N - 1

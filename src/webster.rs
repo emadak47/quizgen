@@ -6,7 +6,7 @@ use std::fmt;
 use url::Url;
 
 use super::english::{
-    AntonymResponse, DefinitionResponse, Details, ExampleResponse, SynonymResponse,
+    AntonymResponse, DefinitionResponse, Details, EnglishApi, ExampleResponse, SynonymResponse,
 };
 
 pub struct WebsterApi {
@@ -54,7 +54,28 @@ impl WebsterApi {
         self.handle_response(response)
     }
 
-    pub fn get_definitions(&self, word: impl AsRef<str>) -> anyhow::Result<DefinitionResponse> {
+    fn clean_markup(&self, s: String) -> Option<String> {
+        let trimmed = self.regex.replace_all(&s, "").trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    }
+
+    fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
+        let status = response.status();
+
+        if status.is_success() {
+            response.json().map_err(|e| e.into())
+        } else {
+            anyhow::bail!("HTTP error {} {}", status, response.text()?);
+        }
+    }
+}
+
+impl EnglishApi for WebsterApi {
+    fn get_definitions(&self, word: &str) -> anyhow::Result<DefinitionResponse> {
         let resp: Vec<CollegiateEntry> = self.get(word, Details::Definitions)?;
         let entry = resp
             .into_iter()
@@ -88,7 +109,7 @@ impl WebsterApi {
         Ok(DefinitionResponse { word, definitions })
     }
 
-    pub fn get_examples(&self, word: impl AsRef<str>) -> anyhow::Result<ExampleResponse> {
+    fn get_examples(&self, word: &str) -> anyhow::Result<ExampleResponse> {
         let resp: Vec<CollegiateEntry> = self.get(word, Details::Examples)?;
         let entry = resp
             .into_iter()
@@ -120,7 +141,7 @@ impl WebsterApi {
         Ok(ExampleResponse { word, examples })
     }
 
-    pub fn get_synonyms(&self, word: impl AsRef<str>) -> anyhow::Result<SynonymResponse> {
+    fn get_synonyms(&self, word: &str) -> anyhow::Result<SynonymResponse> {
         let resp: Vec<ThesaurusEntry> = self.get(word, Details::Synonyms)?;
         let entry = resp
             .into_iter()
@@ -134,7 +155,7 @@ impl WebsterApi {
         Ok(SynonymResponse { word, synonyms })
     }
 
-    pub fn get_antonyms(&self, word: impl AsRef<str>) -> anyhow::Result<AntonymResponse> {
+    fn get_antonyms(&self, word: &str) -> anyhow::Result<AntonymResponse> {
         let resp: Vec<ThesaurusEntry> = self.get(word, Details::Antonyms)?;
         let entry = resp
             .into_iter()
@@ -146,25 +167,6 @@ impl WebsterApi {
         let antonyms = meta.ants.into_iter().flatten().collect();
 
         Ok(AntonymResponse { word, antonyms })
-    }
-
-    fn clean_markup(&self, s: String) -> Option<String> {
-        let trimmed = self.regex.replace_all(&s, "").trim().to_string();
-        if trimmed.is_empty() {
-            None
-        } else {
-            Some(trimmed)
-        }
-    }
-
-    fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
-        let status = response.status();
-
-        if status.is_success() {
-            response.json().map_err(|e| e.into())
-        } else {
-            anyhow::bail!("HTTP error {} {}", status, response.text()?);
-        }
     }
 }
 
