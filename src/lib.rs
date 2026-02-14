@@ -1,5 +1,6 @@
 pub mod english;
 mod mcq;
+pub mod webster;
 pub mod words_api;
 
 use clap::ValueEnum;
