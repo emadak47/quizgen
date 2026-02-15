@@ -1,6 +1,6 @@
 use rand::prelude::*;
 use serde::Deserialize;
-use std::path::Path;
+use std::{collections::HashSet, path::Path};
 
 use crate::{
     mcq::{Choice, Mcq},
@@ -80,13 +80,38 @@ impl EnglishQuiz {
         source: &Path,
         kind: Details,
     ) -> Result<Self, QuizgenError> {
-        let words: Vec<String> = std::fs::read_to_string(source)
-            .map_err(QuizgenError::FileError)?
-            .lines()
-            .map(|line| line.trim().to_string())
-            .collect();
+        let mut words = HashSet::new();
+        let dir = std::fs::read_dir(source).map_err(QuizgenError::FileError)?;
 
-        Ok(Self { apis, kind, words })
+        for entry in dir {
+            let path = entry.map_err(QuizgenError::FileError)?.path();
+
+            if !path.is_file() {
+                continue;
+            }
+            if path.extension().and_then(|ext| ext.to_str()) != Some("txt") {
+                continue;
+            }
+
+            let contents = if let Ok(c) = std::fs::read_to_string(&path) {
+                c
+            } else {
+                continue;
+            };
+
+            for line in contents.lines() {
+                let word = line.trim().to_string();
+                if !word.is_empty() {
+                    words.insert(word);
+                }
+            }
+        }
+
+        Ok(Self {
+            apis,
+            kind,
+            words: words.into_iter().collect(),
+        })
     }
 
     fn try_get<F, T>(&self, f: F) -> Result<T, QuizgenError>
