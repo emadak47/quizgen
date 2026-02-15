@@ -68,6 +68,13 @@ fn select_random<T, const N: usize>(buf: &mut Vec<T>, rng: &mut ThreadRng) -> Op
     }))
 }
 
+fn cap_first_char(word: &mut str) {
+    word.make_ascii_lowercase();
+    if let Some(first) = word.get_mut(0..1) {
+        first.make_ascii_uppercase();
+    }
+}
+
 pub struct EnglishQuiz {
     apis: [Box<dyn EnglishApi>; 2],
     kind: Details,
@@ -191,7 +198,9 @@ impl EnglishQuiz {
             select_random(&mut self.words, &mut rng).ok_or(QuizgenError::DataError)?;
         let rnd_idx = rng.random_range(..N);
         let solution = Choice::try_from(rnd_idx).expect("Choice is valid");
+
         choices[rnd_idx] = word;
+        choices.iter_mut().for_each(|ch| cap_first_char(ch));
 
         Ok(Mcq::new(statement, choices, solution))
     }
