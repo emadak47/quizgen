@@ -84,8 +84,8 @@ impl<T: PartialEq + fmt::Display> fmt::Display for GradeReport<T> {
         writeln!(f, "Score: {:.1}%", self.calculate_score())?;
         for (i, (answer, your_answer)) in self.graded_answers.iter().enumerate() {
             match your_answer {
-                Some(your_answer) if your_answer == answer => writeln!(f, "{i}. ✔ {answer}")?,
-                _ => writeln!(f, "{i}. ✘ {answer}")?,
+                Some(your_answer) if your_answer == answer => writeln!(f, "{}. ✔ {answer}", i + 1)?,
+                _ => writeln!(f, "{}. ✘ {answer}", i + 1)?,
             }
         }
         Ok(())
