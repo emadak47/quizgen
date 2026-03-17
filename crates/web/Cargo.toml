@@ -1,0 +1,10 @@
+[package]
+name = "web"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "quizgen-web"
+path = "src/main.rs"
+
+[dependencies]

@@ -1,0 +1,18 @@
+[package]
+name = "quizgen-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.98"
+rand = "0.9.0"
+regex = "1.12.3"
+reqwest = { version = "0.12.15", features = ["blocking", "json"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0.17"
+url = "2.5.4"
+# Still blocking for now — async migration is Task 3
+# Still has clap/inquire — stripped in Task 2
+clap = { version = "4.5.48", features = ["derive", "env"] }
+inquire = "0.9.0"

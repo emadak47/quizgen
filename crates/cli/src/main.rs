@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use quizgen::{
+use quizgen_core::{
     english::{Details, EnglishQuiz},
     webster::WebsterApi,
     words_api::WordsApi,
@@ -151,6 +151,12 @@ fn quiz(args: QuizArgs) -> anyhow::Result<()> {
 
 fn main() -> anyhow::Result<()> {
     quiz(QuizArgs::parse())
+
+    // order of priority:
+    // better api source (llm?)
+    // timeout: quiz can't go on forever
+    // compare against historical performance (terms of time + score)
+    // telegram? UI?
 }
 
 /*
@@ -164,3 +170,44 @@ Hello [.....]! Welcome to quizgen.
         C. Galaxy
         D. Planet
  */
+
+/*
+enum Operation {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+impl fmt::Display for Operation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Operation::Add => write!(f, "+"),
+            Operation::Subtract => write!(f, "-"),
+            Operation::Multiply => write!(f, "*"),
+            Operation::Divide => write!(f, "/"),
+        }
+    }
+}
+
+struct MentalMath {
+    n1: u32,
+    n2: u32,
+    operation: Operation,
+}
+
+impl Question<u32> for MentalMath {
+    fn ask(&self) -> impl fmt::Display {
+        format!("{} {} {} = ", self.n1, self.operation, self.n2)
+    }
+
+    fn answer(&self) -> u32 {
+        match self.operation {
+            Operation::Add => self.n1 + self.n2,
+            Operation::Subtract => self.n1 - self.n2,
+            Operation::Multiply => self.n1 * self.n2,
+            Operation::Divide => self.n1 / self.n2,
+        }
+    }
+}
+*/
