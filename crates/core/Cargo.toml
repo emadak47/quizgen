@@ -13,6 +13,3 @@ serde_json = "1.0"
 thiserror = "2.0.17"
 url = "2.5.4"
 # Still blocking for now — async migration is Task 3
-# Still has clap/inquire — stripped in Task 2
-clap = { version = "4.5.48", features = ["derive", "env"] }
-inquire = "0.9.0"
