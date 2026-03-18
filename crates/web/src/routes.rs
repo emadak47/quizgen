@@ -46,6 +46,7 @@ fn parse_quiz_type(s: &str) -> Option<Details> {
     }
 }
 
+#[axum::debug_handler]
 pub async fn start_quiz(
     State(state): State<AppState>,
     cookies: Cookies,

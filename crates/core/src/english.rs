@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use rand::prelude::*;
 use serde::Deserialize;
-use std::{collections::HashSet, path::Path};
+use std::{collections::HashSet, future::Future, path::Path, pin::Pin};
 
 use crate::{
     mcq::{Choice, Mcq},
@@ -123,43 +123,13 @@ impl EnglishQuiz {
         })
     }
 
-    async fn try_get_definitions(&self, word: &str) -> Result<DefinitionResponse, QuizgenError> {
+    async fn try_get<'a, F, T>(&'a self, f: F) -> Result<T, QuizgenError>
+    where
+        F: Fn(&'a dyn EnglishApi) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'a>>,
+    {
         let mut last_err = None;
         for api in &self.apis {
-            match api.get_definitions(word).await {
-                Ok(t) => return Ok(t),
-                Err(e) => last_err = Some(e),
-            }
-        }
-        Err(QuizgenError::ApiError(last_err.unwrap()))
-    }
-
-    async fn try_get_examples(&self, word: &str) -> Result<ExampleResponse, QuizgenError> {
-        let mut last_err = None;
-        for api in &self.apis {
-            match api.get_examples(word).await {
-                Ok(t) => return Ok(t),
-                Err(e) => last_err = Some(e),
-            }
-        }
-        Err(QuizgenError::ApiError(last_err.unwrap()))
-    }
-
-    async fn try_get_synonyms(&self, word: &str) -> Result<SynonymResponse, QuizgenError> {
-        let mut last_err = None;
-        for api in &self.apis {
-            match api.get_synonyms(word).await {
-                Ok(t) => return Ok(t),
-                Err(e) => last_err = Some(e),
-            }
-        }
-        Err(QuizgenError::ApiError(last_err.unwrap()))
-    }
-
-    async fn try_get_antonyms(&self, word: &str) -> Result<AntonymResponse, QuizgenError> {
-        let mut last_err = None;
-        for api in &self.apis {
-            match api.get_antonyms(word).await {
+            match f(api.as_ref()).await {
                 Ok(t) => return Ok(t),
                 Err(e) => last_err = Some(e),
             }
@@ -184,7 +154,8 @@ impl EnglishQuiz {
     async fn gen_mcq<const N: usize>(&mut self, word: &str) -> Result<Mcq<N>, QuizgenError> {
         let (word, statement) = match self.kind {
             Details::Synonyms => {
-                let SynonymResponse { word, mut synonyms } = self.try_get_synonyms(word).await?;
+                let SynonymResponse { word, mut synonyms } =
+                    self.try_get(|api| api.get_synonyms(word)).await?;
 
                 let synonyms: [_; N] = select_random(&mut synonyms, &mut rand::rng())
                     .ok_or(QuizgenError::DataError)?;
@@ -193,7 +164,8 @@ impl EnglishQuiz {
                 (word, statement)
             }
             Details::Antonyms => {
-                let AntonymResponse { word, mut antonyms } = self.try_get_antonyms(word).await?;
+                let AntonymResponse { word, mut antonyms } =
+                    self.try_get(|api| api.get_antonyms(word)).await?;
 
                 let antonyms: [_; N] = select_random(&mut antonyms, &mut rand::rng())
                     .ok_or(QuizgenError::DataError)?;
@@ -202,7 +174,8 @@ impl EnglishQuiz {
                 (word, statement)
             }
             Details::Examples => {
-                let ExampleResponse { word, mut examples } = self.try_get_examples(word).await?;
+                let ExampleResponse { word, mut examples } =
+                    self.try_get(|api| api.get_examples(word)).await?;
 
                 let [statement] = select_random(&mut examples, &mut rand::rng())
                     .ok_or_else(|| QuizgenError::DataError)?;
@@ -213,7 +186,7 @@ impl EnglishQuiz {
                 let DefinitionResponse {
                     word,
                     mut definitions,
-                } = self.try_get_definitions(word).await?;
+                } = self.try_get(|api| api.get_definitions(word)).await?;
 
                 let [statement] = select_random(&mut definitions, &mut rand::rng())
                     .ok_or_else(|| QuizgenError::DataError)?;
