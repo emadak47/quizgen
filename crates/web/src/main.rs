@@ -1,9 +1,10 @@
 mod error;
+mod routes;
 mod session;
 
 use askama::Template;
 use askama_web::WebTemplate;
-use axum::{routing::get, Router};
+use axum::{routing::get, routing::post, Router};
 use clap::Parser;
 use session::SessionStore;
 use std::path::PathBuf;
@@ -63,6 +64,10 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/", get(index))
+        .route("/quiz/start", post(routes::start_quiz))
+        .route("/quiz/question/{n}", get(routes::show_question))
+        .route("/quiz/answer/{n}", post(routes::submit_answer))
+        .route("/quiz/results", get(routes::show_results))
         .layer(CookieManagerLayer::new())
         .with_state(state);
 

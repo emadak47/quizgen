@@ -168,7 +168,8 @@ impl EnglishQuiz {
     }
 
     pub async fn gen_rand_mcq<const N: usize>(&mut self) -> Option<Result<Mcq<N>, QuizgenError>> {
-        if let Some([word]) = select_random(&mut self.words, &mut rand::rng()) {
+        let word_opt = select_random::<_, 1>(&mut self.words, &mut rand::rng());
+        if let Some([word]) = word_opt {
             match self.gen_mcq(&word).await {
                 Ok(q) => return Some(Ok(q)),
                 Err(e @ (QuizgenError::DataError | QuizgenError::ApiError(_))) => {
@@ -181,34 +182,29 @@ impl EnglishQuiz {
     }
 
     async fn gen_mcq<const N: usize>(&mut self, word: &str) -> Result<Mcq<N>, QuizgenError> {
-        let mut rng = rand::rng();
-
         let (word, statement) = match self.kind {
             Details::Synonyms => {
-                let SynonymResponse { word, mut synonyms } =
-                    self.try_get_synonyms(word).await?;
+                let SynonymResponse { word, mut synonyms } = self.try_get_synonyms(word).await?;
 
-                let synonyms: [_; N] =
-                    select_random(&mut synonyms, &mut rng).ok_or(QuizgenError::DataError)?;
+                let synonyms: [_; N] = select_random(&mut synonyms, &mut rand::rng())
+                    .ok_or(QuizgenError::DataError)?;
                 let statement = synonyms.join(", ");
 
                 (word, statement)
             }
             Details::Antonyms => {
-                let AntonymResponse { word, mut antonyms } =
-                    self.try_get_antonyms(word).await?;
+                let AntonymResponse { word, mut antonyms } = self.try_get_antonyms(word).await?;
 
-                let antonyms: [_; N] =
-                    select_random(&mut antonyms, &mut rng).ok_or(QuizgenError::DataError)?;
+                let antonyms: [_; N] = select_random(&mut antonyms, &mut rand::rng())
+                    .ok_or(QuizgenError::DataError)?;
                 let statement = antonyms.join(", ");
 
                 (word, statement)
             }
             Details::Examples => {
-                let ExampleResponse { word, mut examples } =
-                    self.try_get_examples(word).await?;
+                let ExampleResponse { word, mut examples } = self.try_get_examples(word).await?;
 
-                let [statement] = select_random(&mut examples, &mut rng)
+                let [statement] = select_random(&mut examples, &mut rand::rng())
                     .ok_or_else(|| QuizgenError::DataError)?;
 
                 (word, statement)
@@ -219,7 +215,7 @@ impl EnglishQuiz {
                     mut definitions,
                 } = self.try_get_definitions(word).await?;
 
-                let [statement] = select_random(&mut definitions, &mut rng)
+                let [statement] = select_random(&mut definitions, &mut rand::rng())
                     .ok_or_else(|| QuizgenError::DataError)?;
 
                 (word, statement)
@@ -227,8 +223,8 @@ impl EnglishQuiz {
         };
 
         let mut choices: [_; N] =
-            select_random(&mut self.words, &mut rng).ok_or(QuizgenError::DataError)?;
-        let rnd_idx = rng.random_range(..N);
+            select_random(&mut self.words, &mut rand::rng()).ok_or(QuizgenError::DataError)?;
+        let rnd_idx = rand::rng().random_range(..N);
         let solution = Choice::try_from(rnd_idx).expect("Choice is valid");
 
         choices[rnd_idx] = word;

@@ -22,7 +22,11 @@ pub struct GradeReport<T> {
 }
 
 impl<T: PartialEq> GradeReport<T> {
-    pub fn new(start_time: Instant, end_time: Instant, graded_answers: Vec<(T, Option<T>)>) -> Self {
+    pub fn new(
+        start_time: Instant,
+        end_time: Instant,
+        graded_answers: Vec<(T, Option<T>)>,
+    ) -> Self {
         Self {
             start_time,
             end_time,
