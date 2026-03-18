@@ -1,4 +1,5 @@
-use reqwest::blocking::{Client, Response};
+use async_trait::async_trait;
+use reqwest::{Client, Response};
 use serde::{de::DeserializeOwned, Deserialize};
 use url::Url;
 
@@ -51,47 +52,53 @@ impl WordsApi {
         })
     }
 
-    fn get<T: DeserializeOwned>(
+    async fn get<T: DeserializeOwned + Send>(
         &self,
         word: impl AsRef<str>,
         details: Option<Details>,
     ) -> anyhow::Result<T> {
         let mut url = self.base_url.clone();
         let path = if let Some(endpoint) = details {
-            &format!("words/{}/{endpoint}", word.as_ref())
+            format!("words/{}/{endpoint}", word.as_ref())
         } else {
-            &format!("words/{}", word.as_ref())
+            format!("words/{}", word.as_ref())
         };
-        url.set_path(path);
+        url.set_path(&path);
 
         let response = self
             .client
             .get(url)
             .header("x-rapidapi-host", "wordsapiv1.p.rapidapi.com")
             .header("x-rapidapi-key", &self.api_key)
-            .send()?;
+            .send()
+            .await?;
 
-        self.handle_response(response)
+        self.handle_response(response).await
     }
 
-    pub fn get_details(&self, word: impl AsRef<str>) -> anyhow::Result<WordResponse> {
-        self.get(word, None)
+    pub async fn get_details(&self, word: impl AsRef<str>) -> anyhow::Result<WordResponse> {
+        self.get(word, None).await
     }
 
-    fn handle_response<T: DeserializeOwned>(&self, response: Response) -> anyhow::Result<T> {
+    async fn handle_response<T: DeserializeOwned + Send>(
+        &self,
+        response: Response,
+    ) -> anyhow::Result<T> {
         let status = response.status();
 
         if status.is_success() {
-            response.json().map_err(|e| e.into())
+            response.json().await.map_err(|e| e.into())
         } else {
-            anyhow::bail!("HTTP error {} {}", status, response.text()?);
+            let text = response.text().await?;
+            anyhow::bail!("HTTP error {} {}", status, text);
         }
     }
 }
 
+#[async_trait]
 impl EnglishApi for WordsApi {
-    fn get_definitions(&self, word: &str) -> anyhow::Result<DefinitionResponse> {
-        let resp: DefinitionResponseTemp = self.get(word, Some(Details::Definitions))?;
+    async fn get_definitions(&self, word: &str) -> anyhow::Result<DefinitionResponse> {
+        let resp: DefinitionResponseTemp = self.get(word, Some(Details::Definitions)).await?;
 
         Ok(DefinitionResponse {
             word: resp.word,
@@ -103,15 +110,15 @@ impl EnglishApi for WordsApi {
         })
     }
 
-    fn get_synonyms(&self, word: &str) -> anyhow::Result<SynonymResponse> {
-        self.get(word, Some(Details::Synonyms))
+    async fn get_synonyms(&self, word: &str) -> anyhow::Result<SynonymResponse> {
+        self.get(word, Some(Details::Synonyms)).await
     }
 
-    fn get_antonyms(&self, word: &str) -> anyhow::Result<AntonymResponse> {
-        self.get(word, Some(Details::Antonyms))
+    async fn get_antonyms(&self, word: &str) -> anyhow::Result<AntonymResponse> {
+        self.get(word, Some(Details::Antonyms)).await
     }
 
-    fn get_examples(&self, word: &str) -> anyhow::Result<ExampleResponse> {
-        self.get(word, Some(Details::Examples))
+    async fn get_examples(&self, word: &str) -> anyhow::Result<ExampleResponse> {
+        self.get(word, Some(Details::Examples)).await
     }
 }

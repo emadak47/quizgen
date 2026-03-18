@@ -101,7 +101,7 @@ fn load_questions() -> Result<Vec<Mcq<4>>, io::Error> {
         .collect())
 }
 
-fn generate_questions(
+async fn generate_questions(
     quiz: &mut EnglishQuiz,
     count: usize,
     prev: Option<Vec<Mcq<4>>>,
@@ -109,7 +109,7 @@ fn generate_questions(
     let mut questions = prev.unwrap_or_default();
     questions.reserve(count);
     while questions.len() < count {
-        match quiz.gen_rand_mcq::<4>() {
+        match quiz.gen_rand_mcq::<4>().await {
             Some(Ok(q)) => questions.push(q),
             Some(Err(QuizgenError::DataError)) => continue,
             Some(Err(e)) => return Err(e),
@@ -183,7 +183,7 @@ fn grade(questions: &[Mcq<4>], mut answers: Vec<Option<Choice>>) -> Vec<(Choice,
         .collect()
 }
 
-fn quiz(args: QuizArgs) -> anyhow::Result<()> {
+async fn quiz(args: QuizArgs) -> anyhow::Result<()> {
     let kind: Details = args.r#type.into();
 
     let prev_questions: Option<Vec<Mcq<4>>> = if args.prev {
@@ -218,7 +218,7 @@ fn quiz(args: QuizArgs) -> anyhow::Result<()> {
         kind,
     )?;
 
-    let questions = generate_questions(&mut english_quiz, args.length, prev_questions)?;
+    let questions = generate_questions(&mut english_quiz, args.length, prev_questions).await?;
 
     let report = match args.mode {
         QuizMode::Interactive => interactive_quiz(&questions),
@@ -236,6 +236,7 @@ fn quiz(args: QuizArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn main() -> anyhow::Result<()> {
-    quiz(QuizArgs::parse())
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    quiz(QuizArgs::parse()).await
 }
