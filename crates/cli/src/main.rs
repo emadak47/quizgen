@@ -1,6 +1,7 @@
 use clap::{Parser, ValueEnum};
 use inquire::Select;
 use rand::seq::SliceRandom;
+use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::{self, BufReader},
@@ -87,9 +88,12 @@ struct QuizArgs {
     prev: bool,
 }
 
-fn load_questions() -> Result<Vec<Mcq<4>>, io::Error> {
+fn load_questions<const N: usize>() -> Result<Vec<Mcq<N>>, io::Error>
+where
+    Mcq<N>: for<'a> Deserialize<'a>,
+{
     let reader = BufReader::new(File::open(Path::new(QUESTIONS_FILE))?);
-    let questions: Vec<Mcq<4>> = serde_json::from_reader(reader)?;
+    let questions: Vec<Mcq<N>> = serde_json::from_reader(reader)?;
 
     let reader = BufReader::new(File::open(Path::new(ANSWERS_FILE))?);
     let answers: Vec<(Choice, Option<Choice>)> = serde_json::from_reader(reader)?;
@@ -101,15 +105,15 @@ fn load_questions() -> Result<Vec<Mcq<4>>, io::Error> {
         .collect())
 }
 
-async fn generate_questions(
+async fn generate_questions<const N: usize>(
     quiz: &mut EnglishQuiz,
     count: usize,
-    prev: Option<Vec<Mcq<4>>>,
-) -> Result<Vec<Mcq<4>>, QuizgenError> {
+    prev: Option<Vec<Mcq<N>>>,
+) -> Result<Vec<Mcq<N>>, QuizgenError> {
     let mut questions = prev.unwrap_or_default();
     questions.reserve(count);
     while questions.len() < count {
-        match quiz.gen_rand_mcq::<4>().await {
+        match quiz.gen_rand_mcq::<N>().await {
             Some(Ok(q)) => questions.push(q),
             Some(Err(QuizgenError::DataError)) => continue,
             Some(Err(e)) => return Err(e),
@@ -119,7 +123,7 @@ async fn generate_questions(
     Ok(questions)
 }
 
-fn interactive_quiz(questions: &[Mcq<4>]) -> GradeReport<Choice> {
+fn interactive_quiz<const N: usize>(questions: &[Mcq<N>]) -> GradeReport<Choice> {
     let start_time = Instant::now();
     let mut answers = Vec::with_capacity(questions.len());
 
@@ -148,7 +152,7 @@ fn interactive_quiz(questions: &[Mcq<4>]) -> GradeReport<Choice> {
     GradeReport::new(start_time, end_time, graded)
 }
 
-fn batch_quiz(questions: &[Mcq<4>]) -> GradeReport<Choice> {
+fn batch_quiz<const N: usize>(questions: &[Mcq<N>]) -> GradeReport<Choice> {
     let start_time = Instant::now();
     let mut answers = Vec::with_capacity(questions.len());
 
@@ -158,8 +162,8 @@ fn batch_quiz(questions: &[Mcq<4>]) -> GradeReport<Choice> {
         println!("Question {}: {}", i + 1, statement);
     }
 
-    for i in 1..=questions.len() {
-        print!("Enter your answer for question {i}: ");
+    for i in 0..questions.len() {
+        print!("Enter your answer for question {}: ", i + 1);
         io::Write::flush(&mut io::stdout()).unwrap();
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
@@ -174,7 +178,10 @@ fn batch_quiz(questions: &[Mcq<4>]) -> GradeReport<Choice> {
     GradeReport::new(start_time, end_time, graded)
 }
 
-fn grade(questions: &[Mcq<4>], mut answers: Vec<Option<Choice>>) -> Vec<(Choice, Option<Choice>)> {
+fn grade<const N: usize>(
+    questions: &[Mcq<N>],
+    mut answers: Vec<Option<Choice>>,
+) -> Vec<(Choice, Option<Choice>)> {
     answers.resize_with(questions.len(), || None);
     questions
         .iter()
@@ -183,10 +190,13 @@ fn grade(questions: &[Mcq<4>], mut answers: Vec<Option<Choice>>) -> Vec<(Choice,
         .collect()
 }
 
-async fn quiz(args: QuizArgs) -> anyhow::Result<()> {
+async fn quiz<const N: usize>(args: QuizArgs) -> anyhow::Result<()>
+where
+    Mcq<N>: Serialize + for<'a> Deserialize<'a>,
+{
     let kind: Details = args.r#type.into();
 
-    let prev_questions: Option<Vec<Mcq<4>>> = if args.prev {
+    let prev_questions: Option<Vec<Mcq<N>>> = if args.prev {
         match load_questions() {
             Ok(mut questions) => {
                 questions.shuffle(&mut rand::rng());
@@ -238,5 +248,5 @@ async fn quiz(args: QuizArgs) -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    quiz(QuizArgs::parse()).await
+    quiz::<4>(QuizArgs::parse()).await
 }
