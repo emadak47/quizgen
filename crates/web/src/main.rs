@@ -1,9 +1,11 @@
 mod error;
+mod session;
 
 use askama::Template;
 use askama_web::WebTemplate;
 use axum::{routing::get, Router};
 use clap::Parser;
+use session::SessionStore;
 use std::path::PathBuf;
 use tower_cookies::CookieManagerLayer;
 
@@ -14,6 +16,12 @@ struct Args {
 
     #[arg(short, long, default_value = "3000")]
     port: u16,
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    pub store: SessionStore,
+    pub source_dir: PathBuf,
 }
 
 #[derive(Template, WebTemplate)]
@@ -48,9 +56,15 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    let state = AppState {
+        store: SessionStore::new(),
+        source_dir: args.source.clone(),
+    };
+
     let app = Router::new()
         .route("/", get(index))
-        .layer(CookieManagerLayer::new());
+        .layer(CookieManagerLayer::new())
+        .with_state(state);
 
     let addr = format!("0.0.0.0:{}", args.port);
     tracing::info!("Listening on {addr}");
