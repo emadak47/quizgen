@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Quizgen — Start{% endblock %}
+
+{% block content %}
+<h1>Quizgen</h1>
+<form method="post" action="/quiz/start">
+    <label for="quiz_type">Quiz Type</label>
+    <select name="quiz_type" id="quiz_type">
+        <option value="synonyms">Synonyms</option>
+        <option value="antonyms">Antonyms</option>
+        <option value="definitions">Definitions</option>
+        <option value="examples">Examples</option>
+    </select>
+
+    <label for="length">Number of Questions</label>
+    <input type="number" name="length" id="length" min="1" max="50" value="10">
+
+    <button type="submit">Start Quiz</button>
+</form>
+{% endblock %}
