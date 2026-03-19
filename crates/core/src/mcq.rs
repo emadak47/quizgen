@@ -23,6 +23,17 @@ impl FromStr for Choice {
     }
 }
 
+impl From<Choice> for usize {
+    fn from(value: Choice) -> Self {
+        match value {
+            Choice::A => 0,
+            Choice::B => 1,
+            Choice::C => 2,
+            Choice::D => 3,
+        }
+    }
+}
+
 impl TryFrom<usize> for Choice {
     type Error = Box<dyn std::error::Error>;
 

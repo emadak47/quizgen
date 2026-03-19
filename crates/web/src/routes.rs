@@ -19,15 +19,6 @@ use crate::AppState;
 
 const SESSION_COOKIE: &str = "quizgen_session";
 
-fn choice_to_usize(c: Choice) -> usize {
-    match c {
-        Choice::A => 0,
-        Choice::B => 1,
-        Choice::C => 2,
-        Choice::D => 3,
-    }
-}
-
 fn get_session_id(cookies: &Cookies) -> Option<String> {
     cookies.get(SESSION_COOKIE).map(|c| c.value().to_string())
 }
@@ -122,7 +113,7 @@ pub async fn show_question(
                 return None;
             }
             let q = &session.questions[n - 1];
-            let solution_word = &q.choices()[choice_to_usize(q.solution())];
+            let solution_word = &q.choices()[q.solution() as usize];
             let statement = q.statement().replacen(solution_word, "[.....]", 1);
             let choices: Vec<(char, String)> = q
                 .choices()
@@ -214,13 +205,13 @@ pub async fn show_results(
                 .zip(session.answers.iter())
                 .map(|(q, a)| {
                     let correct_choice = q.solution();
-                    let correct_answer = q.choices()[choice_to_usize(correct_choice)].clone();
+                    let correct_answer = q.choices()[correct_choice as usize].clone();
                     let is_correct = a.is_some_and(|a| a == correct_choice);
                     if is_correct {
                         correct_count += 1;
                     }
                     let your_answer = match a {
-                        Some(c) => q.choices()[choice_to_usize(*c)].clone(),
+                        Some(c) => q.choices()[*c as usize].clone(),
                         None => "\u{2014}".to_string(),
                     };
                     QuestionResult {
