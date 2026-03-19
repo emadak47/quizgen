@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use askama::Template;
 use askama_web::WebTemplate;
 use axum::extract::{Path, State};
@@ -36,24 +38,13 @@ pub struct StartForm {
     length: usize,
 }
 
-fn parse_quiz_type(s: &str) -> Option<Details> {
-    match s {
-        "synonyms" => Some(Details::Synonyms),
-        "antonyms" => Some(Details::Antonyms),
-        "definitions" => Some(Details::Definitions),
-        "examples" => Some(Details::Examples),
-        _ => None,
-    }
-}
-
 #[axum::debug_handler]
 pub async fn start_quiz(
     State(state): State<AppState>,
     cookies: Cookies,
     Form(form): Form<StartForm>,
 ) -> Result<Redirect, WebError> {
-    let kind = parse_quiz_type(&form.quiz_type)
-        .ok_or_else(|| WebError::Internal("Invalid quiz type".into()))?;
+    let kind = Details::from_str(&form.quiz_type).map_err(|e| WebError::Internal(e.to_string()))?;
 
     let words_api_key = std::env::var("WORDS_API_KEY")
         .map_err(|_| WebError::Internal("Missing WORDS_API_KEY".into()))?;

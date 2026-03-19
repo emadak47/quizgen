@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use rand::prelude::*;
 use serde::Deserialize;
-use std::{collections::HashSet, future::Future, path::Path, pin::Pin};
+use std::{collections::HashSet, future::Future, path::Path, pin::Pin, str::FromStr};
 
 use crate::{
     mcq::{Choice, Mcq},
@@ -38,6 +38,23 @@ pub enum Details {
     Synonyms,
     Antonyms,
     Examples,
+}
+
+impl FromStr for Details {
+    type Err = Box<dyn std::error::Error>;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim() {
+            "definitions" => Ok(Self::Definitions),
+            "synonyms" => Ok(Self::Synonyms),
+            "antonyms" => Ok(Self::Antonyms),
+            "examples" => Ok(Self::Examples),
+            _ => Err(format!(
+                "Invalid: '{s}'. Available: 'definitions', 'synonyms', 'antonyms', 'examples'"
+            )
+            .into()),
+        }
+    }
 }
 
 impl std::fmt::Display for Details {
