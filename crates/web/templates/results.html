@@ -1,23 +1,26 @@
 {% extends "base.html" %}
-
 {% block title %}Quiz Results{% endblock %}
-
 {% block content %}
-<h1>Results</h1>
-<p>Time: {{ time_taken }}</p>
-<p>Score: {{ score }}</p>
-
-<ol>
-{% for result in results %}
-    <li>
-        {% if result.correct %}
-            <span class="correct">&#10004; {{ result.correct_answer }}</span>
-        {% else %}
-            <span class="incorrect">&#10008; Your answer: {{ result.your_answer }} — Correct: {{ result.correct_answer }}</span>
-        {% endif %}
-    </li>
-{% endfor %}
-</ol>
-
-<a href="/">Start New Quiz</a>
+<div class="r-title">Results</div>
+<div class="r-meta">{{ score }} · {{ time_taken }}</div>
+<div class="r-divider"></div>
+<ul class="r-list">
+  {% for result in results %}
+  <li class="r-item {% if result.correct %}r-pass{% else %}r-fail{% endif %}"
+      style="animation-delay: {{ loop.index0 * 50 + 1100 }}ms">
+    {% if result.correct %}
+    <span class="r-mark">&#10003;</span>
+    <span class="r-word">{{ result.correct_answer }}</span>
+    {% else %}
+    <span class="r-mark">&#10007;</span>
+    <span class="r-wrong">{{ result.your_answer }}</span>
+    <span class="r-arrow">→</span>
+    <span class="r-correct">{{ result.correct_answer }}</span>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+<a href="/" class="r-link">
+  <span>again</span><span class="signal-line"></span><span>→</span>
+</a>
 {% endblock %}

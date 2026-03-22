@@ -1,21 +1,41 @@
 {% extends "base.html" %}
-
 {% block title %}Quizgen — Start{% endblock %}
-
 {% block content %}
-<h1>Quizgen</h1>
+<div class="land-title">Quizgen</div>
+<div class="land-sub">vocabulary</div>
+<div class="land-divider"></div>
 <form method="post" action="/quiz/start">
-    <label for="quiz_type">Quiz Type</label>
-    <select name="quiz_type" id="quiz_type">
-        <option value="synonyms">Synonyms</option>
-        <option value="antonyms">Antonyms</option>
-        <option value="definitions">Definitions</option>
-        <option value="examples">Examples</option>
-    </select>
-
-    <label for="length">Number of Questions</label>
-    <input type="number" name="length" id="length" min="1" max="50" value="10">
-
-    <button type="submit">Start Quiz</button>
+  <div class="field-group">
+    <div class="field-label">type</div>
+    <div class="type-options">
+      <label class="type-option sel">
+        <input type="radio" name="quiz_type" value="synonyms" checked>
+        <div class="type-option-frame"></div>
+        <span class="type-option-text">synonyms</span>
+      </label>
+      <label class="type-option">
+        <input type="radio" name="quiz_type" value="antonyms">
+        <div class="type-option-frame"></div>
+        <span class="type-option-text">antonyms</span>
+      </label>
+      <label class="type-option">
+        <input type="radio" name="quiz_type" value="definitions">
+        <div class="type-option-frame"></div>
+        <span class="type-option-text">definitions</span>
+      </label>
+      <label class="type-option">
+        <input type="radio" name="quiz_type" value="examples">
+        <div class="type-option-frame"></div>
+        <span class="type-option-text">examples</span>
+      </label>
+    </div>
+  </div>
+  <div class="field-group field-group-input">
+    <div class="field-label">questions</div>
+    <input class="field-input" type="number" name="length" value="10" min="1" max="50">
+  </div>
+  <button type="submit" class="land-btn">
+    <span>begin</span><span class="signal-line"></span><span>→</span>
+  </button>
 </form>
 {% endblock %}

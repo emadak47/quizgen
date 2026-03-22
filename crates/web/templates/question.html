@@ -1,18 +1,27 @@
 {% extends "base.html" %}
-
 {% block title %}Question {{ current }} of {{ total }}{% endblock %}
-
 {% block content %}
-<h2>Question {{ current }} of {{ total }}</h2>
-<p>{{ statement }}</p>
-
+<div class="q-num">{{ current_display }} / {{ total_display }}</div>
+<div class="q-bar"></div>
+<p class="q-statement">{{ statement|safe }}</p>
 <form method="post" action="/quiz/answer/{{ current }}">
+  <div class="q-choices">
     {% for choice in choices %}
-    <label class="choice-label">
-        <input type="radio" name="answer" value="{{ loop.index0 }}" required>
-        {{ choice.0 }}. {{ choice.1 }}
+    <label class="q-choice">
+      <input type="radio" name="answer" value="{{ loop.index0 }}" style="display:none">
+      <div class="q-choice-frame"></div>
+      <span class="q-choice-letter">{{ choice.0 }}</span>
+      <span class="q-choice-text">{{ choice.1 }}</span>
     </label>
     {% endfor %}
-    <button type="submit">Submit</button>
+  </div>
+  <button type="submit" class="q-submit">
+    <span>submit</span><span class="signal-line"></span><span>→</span>
+  </button>
 </form>
+<div class="q-film">
+  {% for i in 1..=total %}
+  <div class="q-frame{% if i <= current %} exposed{% endif %}"></div>
+  {% endfor %}
+</div>
 {% endblock %}

@@ -15,7 +15,7 @@ askama = "0.15"
 askama_web = { version = "0.15", features = ["axum-0.8"] }
 clap = { version = "4.5.48", features = ["derive", "env"] }
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.6", features = ["trace"] }
+tower-http = { version = "0.6", features = ["fs", "trace"] }
 serde = { version = "1.0", features = ["derive"] }
 tower-cookies = "0.11"
 tracing = "0.1"

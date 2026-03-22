@@ -20,6 +20,11 @@ use crate::AppState;
 
 const SESSION_COOKIE: &str = "quizgen_session";
 
+/// Minimal HTML escape — sufficient for plain-text dictionary content.
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
 fn get_session_id(cookies: &Cookies) -> Option<String> {
     cookies.get(SESSION_COOKIE).map(|c| c.value().to_string())
 }
@@ -80,9 +85,11 @@ pub async fn start_quiz(
 #[derive(Template, WebTemplate)]
 #[template(path = "question.html")]
 pub struct QuestionTemplate {
-    current: usize,
-    total: usize,
-    statement: String,
+    current: usize,           // for form action URL, film strip loop
+    total: usize,             // for film strip range
+    current_display: String,  // "03" — zero-padded for display
+    total_display: String,    // "10" — zero-padded for display
+    statement: String,        // contains HTML <span> for blank
     choices: Vec<(char, String)>,
 }
 
@@ -101,16 +108,21 @@ pub async fn show_question(
             }
             let q = &session.questions[n - 1];
             let solution_word = &q.choices()[q.solution() as usize];
-            let statement = q.statement().replacen(solution_word, "[.....]", 1);
+            let escaped_stmt = html_escape(q.statement());
+            let escaped_word = html_escape(solution_word);
+            let statement = escaped_stmt.replacen(&escaped_word, "<span class=\"q-blank\"></span>", 1);
             let choices: Vec<(char, String)> = q
                 .choices()
                 .iter()
                 .enumerate()
-                .map(|(i, c)| ((b'A' + i as u8) as char, c.clone()))
+                .map(|(i, c)| ((b'a' + i as u8) as char, c.clone()))
                 .collect();
+            let total = session.questions.len();
             Some(QuestionTemplate {
                 current: n,
-                total: session.questions.len(),
+                total,
+                current_display: format!("{:02}", n),
+                total_display: format!("{:02}", total),
                 statement,
                 choices,
             })

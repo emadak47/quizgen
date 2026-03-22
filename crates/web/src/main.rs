@@ -5,10 +5,12 @@ mod session;
 use std::path::PathBuf;
 
 use axum::{routing::get, routing::post, Router};
+use tower_http::services::ServeDir;
 use clap::Parser;
 use session::SessionStore;
 use tower_cookies::CookieManagerLayer;
 
+const STATIC_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/static");
 const WORDS_API_KEY: &str = "WORDS_API_KEY";
 const COLLEGIATE_API_KEY: &str = "COLLEGIATE_API_KEY";
 const THESAURUS_API_KEY: &str = "THESAURUS_API_KEY";
@@ -60,6 +62,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/quiz/question/{n}", get(routes::show_question))
         .route("/quiz/answer/{n}", post(routes::submit_answer))
         .route("/quiz/results", get(routes::show_results))
+        .nest_service("/static", ServeDir::new(STATIC_DIR))
         .layer(CookieManagerLayer::new())
         .with_state(state);
 
