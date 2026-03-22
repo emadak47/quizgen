@@ -1,6 +1,3 @@
-use crate::Question;
-
-use inquire::Select;
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
@@ -22,6 +19,17 @@ impl FromStr for Choice {
             "C" | "c" => Ok(Choice::C),
             "D" | "d" => Ok(Choice::D),
             _ => Err(format!("Invalid choice: '{s}'").into()),
+        }
+    }
+}
+
+impl From<Choice> for usize {
+    fn from(value: Choice) -> Self {
+        match value {
+            Choice::A => 0,
+            Choice::B => 1,
+            Choice::C => 2,
+            Choice::D => 3,
         }
     }
 }
@@ -62,41 +70,23 @@ pub struct Mcq<const N: usize> {
 }
 
 impl<const N: usize> Mcq<N> {
-    pub(crate) fn new(statement: String, choices: [String; N], solution: Choice) -> Self {
+    pub fn new(statement: String, choices: [String; N], solution: Choice) -> Self {
         Self {
             statement,
             choices,
             solution,
         }
     }
-}
 
-impl<const N: usize> Question for Mcq<N> {
-    type Answer = Choice;
-
-    fn ask(&self) -> impl fmt::Display {
-        let solution = &self.choices[self.solution as usize];
-        let statement = self.statement.replacen(solution, "[.....]", 1);
-
-        format!("{statement}\n")
+    pub fn statement(&self) -> &str {
+        &self.statement
     }
 
-    fn attempt(&self, statement: &str) -> Option<Self::Answer> {
-        let options = self
-            .choices
-            .iter()
-            .enumerate()
-            .map(|(idx, choice)| format!("\t{}. {}", (b'A' + idx as u8) as char, choice))
-            .collect::<Vec<_>>();
-
-        Select::new(statement, options)
-            .prompt()
-            .ok()?
-            .get(0..2)
-            .and_then(|ch| Choice::from_str(ch).ok())
+    pub fn choices(&self) -> &[String; N] {
+        &self.choices
     }
 
-    fn answer(&self) -> Choice {
+    pub fn solution(&self) -> Choice {
         self.solution
     }
 }

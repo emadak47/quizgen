@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz Results{% endblock %}
+
+{% block content %}
+<h1>Results</h1>
+<p>Time: {{ time_taken }}</p>
+<p>Score: {{ score }}</p>
+
+<ol>
+{% for result in results %}
+    <li>
+        {% if result.correct %}
+            <span class="correct">&#10004; {{ result.correct_answer }}</span>
+        {% else %}
+            <span class="incorrect">&#10008; Your answer: {{ result.your_answer }} — Correct: {{ result.correct_answer }}</span>
+        {% endif %}
+    </li>
+{% endfor %}
+</ol>
+
+<a href="/">Start New Quiz</a>
+{% endblock %}

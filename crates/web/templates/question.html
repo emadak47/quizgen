@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Question {{ current }} of {{ total }}{% endblock %}
+
+{% block content %}
+<h2>Question {{ current }} of {{ total }}</h2>
+<p>{{ statement }}</p>
+
+<form method="post" action="/quiz/answer/{{ current }}">
+    {% for choice in choices %}
+    <label class="choice-label">
+        <input type="radio" name="answer" value="{{ loop.index0 }}" required>
+        {{ choice.0 }}. {{ choice.1 }}
+    </label>
+    {% endfor %}
+    <button type="submit">Submit</button>
+</form>
+{% endblock %}
