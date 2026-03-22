@@ -15,7 +15,7 @@ use quizgen_core::{
     mcq::{Choice, Mcq},
     webster::WebsterApi,
     words_api::WordsApi,
-    GradeReport, QuizgenError,
+    GradedQuiz, QuizgenError,
 };
 
 const WORDS_API_KEY: &str = "WORDS_API_KEY";
@@ -96,12 +96,19 @@ where
     let questions: Vec<Mcq<N>> = serde_json::from_reader(reader)?;
 
     let reader = BufReader::new(File::open(Path::new(ANSWERS_FILE))?);
-    let answers: Vec<(Choice, Option<Choice>)> = serde_json::from_reader(reader)?;
+    let answers: Vec<Option<Choice>> = serde_json::from_reader(reader)?;
 
     Ok(questions
         .into_iter()
         .zip(answers)
-        .filter_map(|(q, (a1, a2))| a2.as_ref().filter(|&a2| a2 != &a1).map(|_| q))
+        .filter_map(|(q, a)| {
+            let is_correct = a.is_some_and(|a| a == q.solution());
+            if is_correct {
+                None
+            } else {
+                Some(q)
+            }
+        })
         .collect())
 }
 
@@ -111,21 +118,18 @@ async fn generate_questions<const N: usize>(
     prev: Option<Vec<Mcq<N>>>,
 ) -> Result<Vec<Mcq<N>>, QuizgenError> {
     let mut questions = prev.unwrap_or_default();
-    questions.reserve(count);
-    while questions.len() < count {
-        match quiz.gen_rand_mcq::<N>().await {
-            Some(Ok(q)) => questions.push(q),
-            Some(Err(QuizgenError::DataError)) => continue,
-            Some(Err(e)) => return Err(e),
-            None => break,
-        }
+    let remaining = count.saturating_sub(questions.len());
+    if remaining > 0 {
+        questions.extend(quiz.gen_n_mcqs::<N>(remaining).await?);
     }
     Ok(questions)
 }
 
-fn interactive_quiz<const N: usize>(questions: &[Mcq<N>]) -> GradeReport<Choice> {
-    let start_time = Instant::now();
-    let mut answers = Vec::with_capacity(questions.len());
+fn interactive_quiz<'a, const N: usize>(
+    questions: &'a [Mcq<N>],
+    answers: &'a mut [Option<Choice>],
+) -> GradedQuiz<'a, N> {
+    let start = Instant::now();
 
     for (i, question) in questions.iter().enumerate() {
         let solution = &question.choices()[question.solution() as usize];
@@ -143,18 +147,18 @@ fn interactive_quiz<const N: usize>(questions: &[Mcq<N>]) -> GradeReport<Choice>
             .prompt()
             .ok()
             .and_then(|s| s.get(0..2).and_then(|ch| Choice::from_str(ch).ok()));
-        answers.push(answer);
+        answers[i] = answer;
         println!("\n");
     }
 
-    let end_time = Instant::now();
-    let graded = grade(questions, answers);
-    GradeReport::new(start_time, end_time, graded)
+    GradedQuiz::new(questions, answers, start.elapsed())
 }
 
-fn batch_quiz<const N: usize>(questions: &[Mcq<N>]) -> GradeReport<Choice> {
-    let start_time = Instant::now();
-    let mut answers = Vec::with_capacity(questions.len());
+fn batch_quiz<'a, const N: usize>(
+    questions: &'a [Mcq<N>],
+    answers: &'a mut [Option<Choice>],
+) -> GradedQuiz<'a, N> {
+    let start = Instant::now();
 
     for (i, question) in questions.iter().enumerate() {
         let solution = &question.choices()[question.solution() as usize];
@@ -162,32 +166,18 @@ fn batch_quiz<const N: usize>(questions: &[Mcq<N>]) -> GradeReport<Choice> {
         println!("Question {}: {}", i + 1, statement);
     }
 
-    for i in 0..questions.len() {
+    for (i, answer) in answers.iter_mut().enumerate() {
         print!("Enter your answer for question {}: ", i + 1);
         io::Write::flush(&mut io::stdout()).unwrap();
         let mut line = String::new();
         io::stdin().read_line(&mut line).unwrap();
         match line.trim().parse::<Choice>() {
-            Ok(answer) => answers.push(Some(answer)),
-            Err(_) => answers.push(None),
+            Ok(choice) => *answer = Some(choice),
+            Err(_) => continue,
         }
     }
 
-    let end_time = Instant::now();
-    let graded = grade(questions, answers);
-    GradeReport::new(start_time, end_time, graded)
-}
-
-fn grade<const N: usize>(
-    questions: &[Mcq<N>],
-    mut answers: Vec<Option<Choice>>,
-) -> Vec<(Choice, Option<Choice>)> {
-    answers.resize_with(questions.len(), || None);
-    questions
-        .iter()
-        .zip(answers)
-        .map(|(q, a)| (q.solution(), a))
-        .collect()
+    GradedQuiz::new(questions, answers, start.elapsed())
 }
 
 async fn quiz<const N: usize>(args: QuizArgs) -> anyhow::Result<()>
@@ -229,18 +219,35 @@ where
     )?;
 
     let questions = generate_questions(&mut english_quiz, args.length, prev_questions).await?;
+    let mut answers = vec![None; questions.len()];
 
     let report = match args.mode {
-        QuizMode::Interactive => interactive_quiz(&questions),
-        QuizMode::Batch => batch_quiz(&questions),
+        QuizMode::Interactive => interactive_quiz(&questions, &mut answers),
+        QuizMode::Batch => batch_quiz(&questions, &mut answers),
     };
 
-    println!("\n\n{report}");
+    println!("\n\nTime: {:.1}s", report.elapsed.as_secs_f64());
+    println!("Score: {:.1}%\n", report.score());
+    for (i, g) in report.iter().enumerate() {
+        let status = if g.correct { "✔" } else { "✘" };
+        if g.correct {
+            println!("{}. {} Correct: {}", i + 1, status, g.correct_answer);
+        } else {
+            let yours = g.your_answer.unwrap_or("(skipped)");
+            println!(
+                "{}. {} Correct: {} | You: {}",
+                i + 1,
+                status,
+                g.correct_answer,
+                yours
+            );
+        }
+    }
 
     let questions_json = serde_json::to_string_pretty(&questions)?;
     fs::write(Path::new(QUESTIONS_FILE), questions_json)?;
 
-    let answers_json = serde_json::to_string_pretty(&report.graded_answers)?;
+    let answers_json = serde_json::to_string_pretty(&report.answers)?;
     fs::write(Path::new(ANSWERS_FILE), answers_json)?;
 
     Ok(())

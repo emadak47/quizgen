@@ -2,19 +2,21 @@ mod error;
 mod routes;
 mod session;
 
-use askama::Template;
-use askama_web::WebTemplate;
+use std::path::PathBuf;
+
 use axum::{routing::get, routing::post, Router};
 use clap::Parser;
 use session::SessionStore;
-use std::path::PathBuf;
 use tower_cookies::CookieManagerLayer;
+
+const WORDS_API_KEY: &str = "WORDS_API_KEY";
+const COLLEGIATE_API_KEY: &str = "COLLEGIATE_API_KEY";
+const THESAURUS_API_KEY: &str = "THESAURUS_API_KEY";
 
 #[derive(Parser)]
 struct Args {
     #[arg(short, long, default_value = "source", env = "SOURCE_DIR")]
     source: PathBuf,
-
     #[arg(short, long, default_value = "3000")]
     port: u16,
 }
@@ -23,14 +25,9 @@ struct Args {
 pub struct AppState {
     pub store: SessionStore,
     pub source_dir: PathBuf,
-}
-
-#[derive(Template, WebTemplate)]
-#[template(path = "index.html")]
-struct IndexTemplate;
-
-async fn index() -> IndexTemplate {
-    IndexTemplate
+    pub words_api_key: String,
+    pub collegiate_key: String,
+    pub thesaurus_key: String,
 }
 
 #[tokio::main]
@@ -39,7 +36,6 @@ async fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
 
-    // Validate source directory exists and contains .txt files
     if !args.source.is_dir() {
         anyhow::bail!("Source directory does not exist: {:?}", args.source);
     }
@@ -50,20 +46,16 @@ async fn main() -> anyhow::Result<()> {
         anyhow::bail!("No .txt files found in source directory: {:?}", args.source);
     }
 
-    // Validate API keys are present
-    for key in ["WORDS_API_KEY", "COLLEGIATE_API_KEY", "THESAURUS_API_KEY"] {
-        if std::env::var(key).is_err() {
-            anyhow::bail!("Missing environment variable: {key}");
-        }
-    }
-
     let state = AppState {
         store: SessionStore::new(),
-        source_dir: args.source.clone(),
+        source_dir: args.source,
+        words_api_key: std::env::var(WORDS_API_KEY)?,
+        collegiate_key: std::env::var(COLLEGIATE_API_KEY)?,
+        thesaurus_key: std::env::var(THESAURUS_API_KEY)?,
     };
 
     let app = Router::new()
-        .route("/", get(index))
+        .route("/", get(routes::index))
         .route("/quiz/start", post(routes::start_quiz))
         .route("/quiz/question/{n}", get(routes::show_question))
         .route("/quiz/answer/{n}", post(routes::submit_answer))

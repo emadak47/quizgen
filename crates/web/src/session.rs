@@ -1,7 +1,8 @@
-use quizgen_core::mcq::{Choice, Mcq};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
+
+use quizgen_core::mcq::{Choice, Mcq};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 

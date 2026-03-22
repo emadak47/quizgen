@@ -154,7 +154,23 @@ impl EnglishQuiz {
         Err(QuizgenError::ApiError(last_err.unwrap()))
     }
 
-    pub async fn gen_rand_mcq<const N: usize>(&mut self) -> Option<Result<Mcq<N>, QuizgenError>> {
+    pub async fn gen_n_mcqs<const N: usize>(
+        &mut self,
+        count: usize,
+    ) -> Result<Vec<Mcq<N>>, QuizgenError> {
+        let mut questions = Vec::with_capacity(count);
+        while questions.len() < count {
+            match self.gen_rand_mcq::<N>().await {
+                Some(Ok(q)) => questions.push(q),
+                Some(Err(QuizgenError::DataError)) => continue,
+                Some(Err(e)) => return Err(e),
+                None => break,
+            }
+        }
+        Ok(questions)
+    }
+
+    async fn gen_rand_mcq<const N: usize>(&mut self) -> Option<Result<Mcq<N>, QuizgenError>> {
         let word_opt = select_random::<_, 1>(&mut self.words, &mut rand::rng());
         if let Some([word]) = word_opt {
             match self.gen_mcq(&word).await {

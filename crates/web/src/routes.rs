@@ -5,13 +5,14 @@ use askama_web::WebTemplate;
 use axum::extract::{Path, State};
 use axum::response::Redirect;
 use axum::Form;
-use quizgen_core::english::{Details, EnglishQuiz};
-use quizgen_core::mcq::{Choice, Mcq};
-use quizgen_core::webster::WebsterApi;
-use quizgen_core::words_api::WordsApi;
-use quizgen_core::QuizgenError;
 use serde::Deserialize;
 use tower_cookies::{Cookie, Cookies};
+
+use quizgen_core::english::{Details, EnglishQuiz};
+use quizgen_core::mcq::Choice;
+use quizgen_core::webster::WebsterApi;
+use quizgen_core::words_api::WordsApi;
+use quizgen_core::GradedQuiz;
 
 use crate::error::WebError;
 use crate::session::QuizSession;
@@ -21,6 +22,14 @@ const SESSION_COOKIE: &str = "quizgen_session";
 
 fn get_session_id(cookies: &Cookies) -> Option<String> {
     cookies.get(SESSION_COOKIE).map(|c| c.value().to_string())
+}
+
+#[derive(Template, WebTemplate)]
+#[template(path = "index.html")]
+pub struct IndexTemplate;
+
+pub async fn index() -> IndexTemplate {
+    IndexTemplate
 }
 
 #[derive(Deserialize)]
@@ -35,40 +44,24 @@ pub async fn start_quiz(
     cookies: Cookies,
     Form(form): Form<StartForm>,
 ) -> Result<Redirect, WebError> {
-    let kind = Details::from_str(&form.quiz_type).map_err(|e| WebError::Internal(e.to_string()))?;
+    let kind =
+        Details::from_str(&form.quiz_type).map_err(|e| WebError::BadRequest(e.to_string()))?;
 
-    let words_api_key = std::env::var("WORDS_API_KEY")
-        .map_err(|_| WebError::Internal("Missing WORDS_API_KEY".into()))?;
-    let collegiate_key = std::env::var("COLLEGIATE_API_KEY")
-        .map_err(|_| WebError::Internal("Missing COLLEGIATE_API_KEY".into()))?;
-    let thesaurus_key = std::env::var("THESAURUS_API_KEY")
-        .map_err(|_| WebError::Internal("Missing THESAURUS_API_KEY".into()))?;
-
-    let words_api = WordsApi::new(words_api_key).map_err(|e| WebError::Internal(e.to_string()))?;
-    let webster_api = WebsterApi::new(collegiate_key, thesaurus_key)
+    let words_api =
+        WordsApi::new(&state.words_api_key).map_err(|e| WebError::Internal(e.to_string()))?;
+    let webster_api = WebsterApi::new(&state.collegiate_key, &state.thesaurus_key)
         .map_err(|e| WebError::Internal(e.to_string()))?;
 
-    let mut quiz = EnglishQuiz::new(
+    let mut english_quiz = EnglishQuiz::new(
         [Box::new(words_api), Box::new(webster_api)],
         &state.source_dir,
         kind,
     )?;
 
-    // Generate all questions up front
-    let mut questions: Vec<Mcq<4>> = Vec::with_capacity(form.length);
-    while questions.len() < form.length {
-        match quiz.gen_rand_mcq::<4>().await {
-            Some(Ok(q)) => questions.push(q),
-            Some(Err(QuizgenError::DataError)) => continue,
-            Some(Err(e)) => return Err(e.into()),
-            None => break,
-        }
-    }
+    let questions = english_quiz.gen_n_mcqs::<4>(form.length).await?;
 
     if questions.is_empty() {
-        return Err(WebError::Internal(
-            "Could not generate any questions".into(),
-        ));
+        return Err(WebError::ServiceUnavailable);
     }
 
     let session = QuizSession::new(questions);
@@ -82,12 +75,6 @@ pub async fn start_quiz(
     cookies.add(cookie);
 
     Ok(Redirect::to("/quiz/question/1"))
-}
-
-struct QuestionData {
-    statement: String,
-    choices: Vec<(char, String)>,
-    total: usize,
 }
 
 #[derive(Template, WebTemplate)]
@@ -106,7 +93,7 @@ pub async fn show_question(
 ) -> Result<QuestionTemplate, WebError> {
     let session_id = get_session_id(&cookies).ok_or(WebError::NoSession)?;
 
-    let result = state
+    let question_temp = state
         .store
         .get(&session_id, |session| {
             if n == 0 || n > session.questions.len() {
@@ -121,23 +108,18 @@ pub async fn show_question(
                 .enumerate()
                 .map(|(i, c)| ((b'A' + i as u8) as char, c.clone()))
                 .collect();
-            Some(QuestionData {
+            Some(QuestionTemplate {
+                current: n,
+                total: session.questions.len(),
                 statement,
                 choices,
-                total: session.questions.len(),
             })
         })
         .await
-        .ok_or(WebError::NoSession)?;
+        .ok_or(WebError::NoSession)?
+        .ok_or(WebError::NotFound)?;
 
-    let data = result.ok_or_else(|| WebError::Internal("Invalid question number".into()))?;
-
-    Ok(QuestionTemplate {
-        current: n,
-        total: data.total,
-        statement: data.statement,
-        choices: data.choices,
-    })
+    Ok(question_temp)
 }
 
 #[derive(Deserialize)]
@@ -192,44 +174,27 @@ pub async fn show_results(
 ) -> Result<ResultsTemplate, WebError> {
     let session_id = get_session_id(&cookies).ok_or(WebError::NoSession)?;
 
-    let data = state
+    let result_temp = state
         .store
         .get(&session_id, |session| {
-            let elapsed = session.started_at.elapsed();
-            let total = session.questions.len();
-            let mut correct_count = 0usize;
-
-            let results: Vec<QuestionResult> = session
-                .questions
+            let graded = GradedQuiz::new(
+                &session.questions,
+                &session.answers,
+                session.started_at.elapsed(),
+            );
+            let results: Vec<QuestionResult> = graded
                 .iter()
-                .zip(session.answers.iter())
-                .map(|(q, a)| {
-                    let correct_choice = q.solution();
-                    let correct_answer = q.choices()[correct_choice as usize].clone();
-                    let is_correct = a.is_some_and(|a| a == correct_choice);
-                    if is_correct {
-                        correct_count += 1;
-                    }
-                    let your_answer = match a {
-                        Some(c) => q.choices()[*c as usize].clone(),
-                        None => "\u{2014}".to_string(),
-                    };
-                    QuestionResult {
-                        correct: is_correct,
-                        correct_answer,
-                        your_answer,
-                    }
+                .map(|g| QuestionResult {
+                    correct: g.correct,
+                    correct_answer: g.correct_answer.to_owned(),
+                    your_answer: g.your_answer.unwrap_or("\u{2014}").to_owned(),
                 })
                 .collect();
-
-            let score = if total > 0 {
-                format!("{:.1}%", correct_count as f64 / total as f64 * 100.0)
-            } else {
-                "0.0%".to_string()
-            };
-
-            let time_taken = format!("{:.1}s", elapsed.as_secs_f64());
-            (time_taken, score, results)
+            ResultsTemplate {
+                time_taken: format!("{:.1}s", graded.elapsed.as_secs_f64()),
+                score: format!("{:.1}%", graded.score()),
+                results,
+            }
         })
         .await
         .ok_or(WebError::NoSession)?;
@@ -238,10 +203,5 @@ pub async fn show_results(
     state.store.remove(&session_id).await;
     cookies.remove(Cookie::from(SESSION_COOKIE));
 
-    let (time_taken, score, results) = data;
-    Ok(ResultsTemplate {
-        time_taken,
-        score,
-        results,
-    })
+    Ok(result_temp)
 }

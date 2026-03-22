@@ -3,7 +3,9 @@ pub mod mcq;
 pub mod webster;
 pub mod words_api;
 
-use std::{fmt, time::Instant};
+use std::time::Duration;
+
+use crate::mcq::{Choice, Mcq};
 
 #[derive(thiserror::Error, Debug)]
 pub enum QuizgenError {
@@ -15,50 +17,47 @@ pub enum QuizgenError {
     FileError(#[from] std::io::Error),
 }
 
-pub struct GradeReport<T> {
-    pub start_time: Instant,
-    pub end_time: Instant,
-    pub graded_answers: Vec<(T, Option<T>)>,
+pub struct GradedQuiz<'a, const N: usize> {
+    questions: &'a [Mcq<N>],
+    pub answers: &'a [Option<Choice>],
+    pub elapsed: Duration,
 }
 
-impl<T: PartialEq> GradeReport<T> {
-    pub fn new(
-        start_time: Instant,
-        end_time: Instant,
-        graded_answers: Vec<(T, Option<T>)>,
-    ) -> Self {
+pub struct QuestionGrade<'a> {
+    pub correct: bool,
+    pub correct_answer: &'a str,
+    pub your_answer: Option<&'a str>,
+}
+
+impl<'a, const N: usize> GradedQuiz<'a, N> {
+    pub fn new(questions: &'a [Mcq<N>], answers: &'a [Option<Choice>], elapsed: Duration) -> Self {
         Self {
-            start_time,
-            end_time,
-            graded_answers,
+            questions,
+            answers,
+            elapsed,
         }
     }
 
-    pub fn calculate_score(&self) -> f64 {
-        let total = self.graded_answers.len();
+    pub fn score(&self) -> f64 {
+        let total = self.questions.len();
         if total == 0 {
             return 0.0;
         }
-        let correct = self
-            .graded_answers
-            .iter()
-            .filter_map(|(a1, a2)| a2.as_ref().map(|ans| ans == a1))
-            .filter(|&is_correct| is_correct)
-            .count();
+        let correct = self.iter().filter(|g| g.correct).count();
         correct as f64 / total as f64 * 100.0
     }
-}
 
-impl<T: PartialEq + fmt::Display> fmt::Display for GradeReport<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Time taken: {:?}", self.end_time - self.start_time)?;
-        writeln!(f, "Score: {:.1}%", self.calculate_score())?;
-        for (i, (answer, your_answer)) in self.graded_answers.iter().enumerate() {
-            match your_answer {
-                Some(your_answer) if your_answer == answer => writeln!(f, "{}. ✔ {answer}", i + 1)?,
-                _ => writeln!(f, "{}. ✘ {answer}", i + 1)?,
+    pub fn iter(&self) -> impl Iterator<Item = QuestionGrade<'_>> + '_ {
+        self.questions.iter().zip(self.answers).map(|(q, a)| {
+            let correct_choice = q.solution();
+            let is_correct = a.is_some_and(|a| a == correct_choice);
+            let correct_answer = q.choices()[correct_choice as usize].as_str();
+            let your_answer = a.map(|a| q.choices()[a as usize].as_str());
+            QuestionGrade {
+                correct: is_correct,
+                correct_answer,
+                your_answer,
             }
-        }
-        Ok(())
+        })
     }
 }
